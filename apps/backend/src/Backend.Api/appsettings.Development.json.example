@@ -1,0 +1,24 @@
+{
+  "ConnectionStrings": {
+    "Default": "Host=localhost;Port=5432;Database=backend;Username=postgres;Password=postgres"
+  },
+  "Redis": {
+    "ConnectionString": "localhost:6379",
+    "TtlSeconds": 3600
+  },
+  "Smtp": {
+    "Host": "smtp.gmail.com",
+    "Port": 587,
+    "User": "your-gmail-address@gmail.com",
+    "Password": "your-gmail-app-password",
+    "FromName": "Backend"
+  },
+  "Keycloak": {
+    "Url": "http://localhost:8080",
+    "Realm": "your-realm",
+    "Audience": "your-client-id"
+  },
+  "Cors": {
+    "AllowedOrigins": ["http://localhost:3000", "http://localhost:3001"]
+  }
+}

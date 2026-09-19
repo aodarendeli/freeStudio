@@ -1,0 +1,26 @@
+{
+  "common": {
+    "home": "Ana sayfa",
+    "signIn": "Giriş yap",
+    "signOut": "Çıkış yap"
+  },
+  "home": {
+    "title": "Next.js + ASP.NET Core",
+    "loginPrompt": "Devam etmek için giriş yap"
+  },
+  "categories": {
+    "title": "Kategoriler",
+    "empty": "Henüz kategori yok.",
+    "addPlaceholder": "Yeni kategori adı",
+    "add": "Kategori ekle",
+    "adding": "Ekleniyor...",
+    "edit": "Düzenle",
+    "save": "Kaydet",
+    "saving": "Kaydediliyor...",
+    "cancel": "Vazgeç",
+    "delete": "Sil",
+    "deleting": "Siliniyor...",
+    "adminRequired": "Kategori ekleme/düzenleme/silme için admin yetkisi gerekiyor.",
+    "confirmDelete": "\"{name}\" silinsin mi?"
+  }
+}

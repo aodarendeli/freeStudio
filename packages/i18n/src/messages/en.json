@@ -1,0 +1,26 @@
+{
+  "common": {
+    "home": "Home",
+    "signIn": "Sign in",
+    "signOut": "Sign out"
+  },
+  "home": {
+    "title": "Next.js + ASP.NET Core",
+    "loginPrompt": "Sign in to continue"
+  },
+  "categories": {
+    "title": "Categories",
+    "empty": "No categories yet.",
+    "addPlaceholder": "New category name",
+    "add": "Add category",
+    "adding": "Adding...",
+    "edit": "Edit",
+    "save": "Save",
+    "saving": "Saving...",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "deleting": "Deleting...",
+    "adminRequired": "Admin permission is required to add/edit/delete categories.",
+    "confirmDelete": "Delete \"{name}\"?"
+  }
+}
