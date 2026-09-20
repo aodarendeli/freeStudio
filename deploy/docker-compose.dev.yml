@@ -1,0 +1,65 @@
+# VPS'te /home/ahmet/freestudio-dev/docker-compose.yml olarak yaşıyor.
+# CI, her deploy'da bu dosyayı sunucuya kopyalar ve `docker compose pull && up -d <servis>` çalıştırır.
+# Sırlar (DB, Redis, Keycloak client secret, AUTH_SECRET...) repo'ya girmiyor;
+# sunucudaki backend.env / admin.env / client.env dosyalarında tutuluyor.
+services:
+  backend-dev:
+    image: ghcr.io/aodarendeli/freestudio-backend:dev
+    container_name: backend-dev
+    restart: unless-stopped
+    ports:
+      - "3010:3010"
+    environment:
+      ASPNETCORE_URLS: http://+:3010
+    env_file:
+      - ./backend.env
+    networks:
+      - proxy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:3010/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  admin-dev:
+    image: ghcr.io/aodarendeli/freestudio-admin:dev
+    container_name: admin-dev
+    restart: unless-stopped
+    ports:
+      - "3011:3011"
+    environment:
+      PORT: 3011
+    env_file:
+      - ./admin.env
+    networks:
+      - proxy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3011/login"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  client-dev:
+    image: ghcr.io/aodarendeli/freestudio-client:dev
+    container_name: client-dev
+    restart: unless-stopped
+    ports:
+      - "3012:3012"
+    environment:
+      PORT: 3012
+    env_file:
+      - ./client.env
+    networks:
+      - proxy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3012/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+networks:
+  proxy:
+    external: true
