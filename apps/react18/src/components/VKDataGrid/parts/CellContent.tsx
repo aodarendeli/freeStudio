@@ -11,7 +11,6 @@ type CellContentProps = {
   rowIndex: number;
   columnIndex: number;
   isSelected: boolean;
-  isEditing: boolean;
   searchText: string;
   highlight: { enabled: boolean; caseSensitive: boolean };
 };
@@ -49,9 +48,9 @@ const highlightText = (text: string, search: string, caseSensitive: boolean): Re
 
 /**
  * DevExtreme `cellRender` bilgi nesnesi ile uyumlu alanlar:
- * data, value, displayValue, text, rowIndex, columnIndex, column, row, rowType, key, isSelected, isEditing
+ * data, value, displayValue, text, rowIndex, columnIndex, column, row, rowType, key, isSelected
  */
-const buildCellInfo = ({ column, value, row, rowKey, rowIndex, columnIndex, isSelected, isEditing }: CellContentProps) => {
+const buildCellInfo = ({ column, value, row, rowKey, rowIndex, columnIndex, isSelected }: CellContentProps) => {
   const text = getDisplayText(column, value);
   return {
     data: row,
@@ -68,11 +67,11 @@ const buildCellInfo = ({ column, value, row, rowKey, rowIndex, columnIndex, isSe
       name: column.name,
       alignment: column.alignment,
     },
-    row: { data: row, key: rowKey, rowIndex, rowType: 'data', isSelected, isEditing },
+    row: { data: row, key: rowKey, rowIndex, rowType: 'data', isSelected, isEditing: false },
     rowType: 'data',
     key: rowKey,
     isSelected,
-    isEditing,
+    isEditing: false,
     values: [],
   };
 };

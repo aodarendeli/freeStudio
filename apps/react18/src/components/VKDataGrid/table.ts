@@ -52,22 +52,19 @@ type BuildColumnDefsArgs = {
   showSelectColumn: boolean;
   showRadioColumn: boolean;
   showActionsColumn: boolean;
-  showCommandColumn: boolean;
 };
 
-/** DevExtreme sütun sırası: sürükle, seçim, radio, aksiyon, veri sütunları, CRUD komutları */
+/** Sütun sırası: sürükle, seçim, radio, veri sütunları, aksiyon menüsü */
 export const buildColumnDefs = ({
   columns,
   showDragColumn,
   showSelectColumn,
   showRadioColumn,
   showActionsColumn,
-  showCommandColumn,
 }: BuildColumnDefsArgs): GridColumnDef[] => [
   ...(showDragColumn ? [systemColumn(SYSTEM_COLUMN.drag)] : []),
   ...(showSelectColumn ? [systemColumn(SYSTEM_COLUMN.select)] : []),
   ...(showRadioColumn ? [systemColumn(SYSTEM_COLUMN.radio)] : []),
-  ...(showActionsColumn ? [systemColumn(SYSTEM_COLUMN.actions)] : []),
   ...columns.map(
     (column): GridColumnDef => ({
       id: column.id,
@@ -78,5 +75,5 @@ export const buildColumnDefs = ({
       enableGrouping: column.allowGrouping,
     })
   ),
-  ...(showCommandColumn ? [systemColumn(SYSTEM_COLUMN.command)] : []),
+  ...(showActionsColumn ? [systemColumn(SYSTEM_COLUMN.actions)] : []),
 ];

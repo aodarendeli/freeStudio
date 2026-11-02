@@ -28,6 +28,24 @@ public class ProductService(IProductRepository repository) : IProductService
         return (items.Select(ToDto).ToList(), meta);
     }
 
+    public async Task<(IReadOnlyList<ProductDto> Items, PaginationMeta Meta)> SearchAsync(
+        ProductSearchDto search, CancellationToken ct = default)
+    {
+        var (items, total) = await repository.SearchAsync(search, ct);
+        var meta = new PaginationMeta(total, search.Page, search.Size, (int)Math.Ceiling(total / (double)search.Size));
+
+        return (items.Select(ToDto).ToList(), meta);
+    }
+
+    /// <summary>Tek seferde dışa aktarılabilecek en fazla kayıt</summary>
+    public const int MaxExportRows = 50_000;
+
+    public async Task<IReadOnlyList<ProductExportRow>> ExportAsync(ProductSearchDto search, CancellationToken ct = default)
+    {
+        var items = await repository.ExportAsync(search, MaxExportRows, ct);
+        return items.Select(p => new ProductExportRow(p.Name, p.Category?.Name ?? p.CategoryId, p.Price, p.CreatedAt)).ToList();
+    }
+
     public async Task<ProductDto> GetByIdAsync(string id, CancellationToken ct = default)
     {
         var product = await repository.GetByIdAsync(id, ct)

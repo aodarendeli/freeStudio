@@ -9,6 +9,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Product> Products => Set<Product>();
     public DbSet<MenuItem> MenuItems => Set<MenuItem>();
     public DbSet<SeoMetadata> SeoMetadataEntries => Set<SeoMetadata>();
+    public DbSet<Article> Articles => Set<Article>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -53,6 +54,18 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(s => s.Slug).IsRequired();
             entity.Property(s => s.Title).IsRequired();
             entity.HasIndex(s => new { s.ProjectKey, s.Slug }).IsUnique();
+        });
+
+        modelBuilder.Entity<Article>(entity =>
+        {
+            entity.ToTable("articles");
+            entity.HasKey(a => a.Id);
+            entity.Property(a => a.Title).IsRequired().HasMaxLength(200);
+            entity.Property(a => a.Slug).IsRequired().HasMaxLength(220);
+            entity.Property(a => a.Summary).HasMaxLength(500);
+            entity.Property(a => a.Content).IsRequired().HasColumnType("text");
+            entity.HasIndex(a => a.Slug).IsUnique();
+            entity.HasIndex(a => new { a.Status, a.PublishedAt });
         });
 
         base.OnModelCreating(modelBuilder);

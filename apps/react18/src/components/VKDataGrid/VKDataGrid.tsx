@@ -10,11 +10,6 @@ import {
 } from 'react';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import Dialog from '@mui/material/Dialog';
-import DialogActions from '@mui/material/DialogActions';
-import DialogContent from '@mui/material/DialogContent';
-import DialogContentText from '@mui/material/DialogContentText';
 import Snackbar from '@mui/material/Snackbar';
 import Table from '@mui/material/Table';
 import TableContainer from '@mui/material/TableContainer';
@@ -45,7 +40,6 @@ import { applyLocalFilters, applyLocalSearch, applyLocalSort } from './filtering
 import { buildColumnDefs, gridFeatures } from './table';
 import { useGridState } from './hooks/useGridState';
 import { useGridSelection } from './hooks/useGridSelection';
-import { useGridEditing } from './hooks/useGridEditing';
 import { useGridRowDragging } from './hooks/useGridRowDragging';
 import { GridToolbar } from './parts/GridToolbar';
 import { GridHeader } from './parts/GridHeader';
@@ -59,8 +53,7 @@ const SYSTEM_COLUMN_WIDTHS: Record<string, number> = {
   [SYSTEM_COLUMN.drag]: 36,
   [SYSTEM_COLUMN.select]: 48,
   [SYSTEM_COLUMN.radio]: 50,
-  [SYSTEM_COLUMN.actions]: 60,
-  [SYSTEM_COLUMN.command]: 96,
+  [SYSTEM_COLUMN.actions]: 88,
 };
 
 const SYSTEM_KINDS: Record<string, DisplayColumnKind> = {
@@ -68,7 +61,6 @@ const SYSTEM_KINDS: Record<string, DisplayColumnKind> = {
   [SYSTEM_COLUMN.select]: 'select',
   [SYSTEM_COLUMN.radio]: 'radio',
   [SYSTEM_COLUMN.actions]: 'actions',
-  [SYSTEM_COLUMN.command]: 'command',
 };
 
 const MIN_COLUMN_WIDTH = 40;
@@ -120,7 +112,7 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
     isHeaderBold = false,
     rowAlternationEnabled = true,
     searchPanel,
-    multipleSelection = true,
+    multipleSelection = false,
     allowedPageSizes = [5, 10, 20],
     summary,
     selection,
@@ -138,10 +130,6 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
     resetOperationText = null,
     onFilterChange,
     sorting,
-    isCrud = false,
-    onCreate,
-    onUpdate,
-    onDelete,
     actionMenuRender,
     columnChooserOption,
     pager,
@@ -252,7 +240,6 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
     onFilterChange,
     handlePagingChanged,
     paging,
-    totalCount,
     columns: gridColumns,
     getVisibleColumns,
   });
@@ -260,7 +247,8 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
 
   /** Basit modda DevExtreme filtre/arama/sıralamayı sayfadaki veride yerel yapıyordu */
   const processedData = useMemo(() => {
-    let rows = actualData;
+    // Sayfa boyutu küçülünce yeni sayfa gelene kadar eski sayfanın fazla satırları görünmesin
+    let rows = actualData.length > gridState.pageSize ? actualData.slice(0, gridState.pageSize) : actualData;
     if (!isServerMode) {
       rows = applyLocalFilters(rows, visibleDataColumns, gridState.filters);
       rows = applyLocalSearch(rows, visibleDataColumns, gridState.searchText);
@@ -276,6 +264,7 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
     return rows;
   }, [
     actualData,
+    gridState.pageSize,
     isServerMode,
     visibleDataColumns,
     gridState.filters,
@@ -294,7 +283,7 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
     sourceData: actualData,
     rowSelectionChange,
   });
-  const { isKeyExistsInData, isRowSelected, applyPageSelection, getGridKey } = gridSelection;
+  const { isKeyExistsInData, isRowSelected, applyPageSelection } = gridSelection;
   const [selectedRadioRowKey, setSelectedRadioRowKey] = useState<unknown>(null);
 
   const getRowId = useCallback(
@@ -332,7 +321,6 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
         showSelectColumn,
         showRadioColumn: singleRowRadioSelection,
         showActionsColumn: !!actionMenuRender,
-        showCommandColumn: isCrud,
       }),
     [
       gridColumns,
@@ -341,25 +329,23 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
       showSelectColumn,
       singleRowRadioSelection,
       actionMenuRender,
-      isCrud,
     ]
   );
 
   const columnPinning = useMemo(() => {
+    // Eski ColumnFixing davranışı: seçim / sürükleme sütunları sadece fixed sütun varsa sabitlenir,
+    // aksiyon sütunu normal sütundur
     const systemStart = hasFixedColumn
-      ? columnDefs.map((c) => c.id as string).filter((id) => id !== SYSTEM_COLUMN.command && SYSTEM_KINDS[id])
+      ? columnDefs.map((c) => c.id as string).filter((id) => SYSTEM_KINDS[id] && id !== SYSTEM_COLUMN.actions)
       : [];
     return {
       start: [
         ...systemStart,
         ...gridColumns.filter((c) => c.fixed && c.fixedPosition === 'left').map((c) => c.id),
       ],
-      end: [
-        ...gridColumns.filter((c) => c.fixed && c.fixedPosition === 'right').map((c) => c.id),
-        ...(hasFixedColumn && isCrud ? [SYSTEM_COLUMN.command] : []),
-      ],
+      end: gridColumns.filter((c) => c.fixed && c.fixedPosition === 'right').map((c) => c.id),
     };
-  }, [columnDefs, gridColumns, hasFixedColumn, isCrud]);
+  }, [columnDefs, gridColumns, hasFixedColumn]);
 
   const table = useTable({
     features: gridFeatures,
@@ -491,12 +477,10 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
     [displayColumns, columnSizing, measuredWidths]
   );
 
-  // --- CRUD ---
   const [notification, setNotification] = useState<{ message: string; severity: 'warning' | 'error' } | null>(
     null
   );
   const notifyError = useCallback((message: string) => setNotification({ message, severity: 'error' }), []);
-  const editing = useGridEditing({ onCreate, onUpdate, onDelete, getRowKey: getGridKey, onError: notifyError });
 
   // --- Satır sürükleme ---
   const visibleDataRows = table
@@ -587,6 +571,21 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
     runExport(gridSelection.internalSelectedData, true);
   };
 
+  const [isExportingAll, setIsExportingAll] = useState(false);
+  const handleExportAll = useCallback(async () => {
+    if (!exportDataAllMethod) return;
+    const result = exportDataAllMethod(gridState.getFilters());
+    if (!result || typeof (result as Promise<unknown>).then !== 'function') return;
+    setIsExportingAll(true);
+    try {
+      await result;
+    } catch (error) {
+      notifyError(error instanceof Error && error.message ? error.message : 'Dışa aktarma başarısız oldu.');
+    } finally {
+      setIsExportingAll(false);
+    }
+  }, [exportDataAllMethod, gridState, notifyError]);
+
   // --- Ref API ---
   useImperativeHandle(
     ref,
@@ -610,7 +609,6 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
     gridState,
     selection: gridSelection,
     selectionConfig: memoSelection,
-    editing,
     dragging,
     isRowDraggingEnabled,
     showDragIcons: props.rowDragging?.showDragIcons ?? true,
@@ -648,13 +646,20 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
       <GridContext.Provider value={contextValue}>
         <Box
           ref={rootRef}
-          sx={{
+          sx={(theme) => ({
             display: 'flex',
             flexDirection: 'column',
             width: '100%',
             minWidth: 0,
-            height: isHeightFixed ? height : undefined,
-          }}
+            // Az satırda grid küçülür, `height` aşılınca gövde kayar
+            maxHeight: isHeightFixed ? height : undefined,
+            backgroundColor: theme.palette.background.paper,
+            ...(showBorders && {
+              border: `1px solid ${theme.palette.divider}`,
+              borderRadius: `${theme.shape.borderRadius}px`,
+              overflow: 'hidden',
+            }),
+          })}
         >
           <GridToolbar
             table={table}
@@ -663,15 +668,13 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
             searchText={gridState.searchText}
             onSearch={gridState.changeSearch}
             columnChooser={memoColumnChooser}
-            showAddButton={isCrud}
-            isAddDisabled={!!editing.editingRow || editing.isPending}
-            onAdd={editing.startAdd}
             showExportButton={!!memoExportOptions.enabled}
             onExport={() => runExport(processedData, false)}
             showPrintButton={isPrintButtonVisible}
             onPrint={handlePrint}
             showExportAllButton={isExportAllButtonVisible}
-            onExportAll={exportDataAllMethod}
+            onExportAll={handleExportAll}
+            isExportingAll={isExportingAll}
             showExportSelectedButton={!!memoExportOptions.allowExportSelectedData}
             onExportSelected={handleExportSelected}
           />
@@ -680,7 +683,6 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
               flex: '1 1 auto',
               minHeight: 0,
               overflow: 'auto',
-              border: showBorders ? `1px solid ${theme.palette.divider}` : 'none',
               backgroundColor: theme.palette.background.paper,
             })}
           >
@@ -734,21 +736,6 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
           ) : undefined}
         </Snackbar>
 
-        {isCrud && (
-          <Dialog open={!!editing.deleteTarget} onClose={editing.cancelDelete}>
-            <DialogContent>
-              <DialogContentText>Bu kaydı silmek istediğinizden emin misiniz?</DialogContentText>
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={editing.cancelDelete} disabled={editing.isPending}>
-                Hayır
-              </Button>
-              <Button onClick={editing.confirmDelete} disabled={editing.isPending} variant="contained" color="error">
-                Evet
-              </Button>
-            </DialogActions>
-          </Dialog>
-        )}
       </GridContext.Provider>
     </LocalizationProvider>
   );

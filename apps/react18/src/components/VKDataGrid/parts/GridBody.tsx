@@ -5,12 +5,8 @@ import IconButton from '@mui/material/IconButton';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import TableRow from '@mui/material/TableRow';
-import Tooltip from '@mui/material/Tooltip';
-import CheckIcon from '@mui/icons-material/Check';
-import CloseIcon from '@mui/icons-material/Close';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import { closestCenter, DndContext } from '@dnd-kit/core';
@@ -19,6 +15,7 @@ import { CSS } from '@dnd-kit/utilities';
 import type { Row } from '@tanstack/react-table';
 import {
   getCellSx,
+  getHoverRowColor,
   getSelectedRowColor,
   getZebraColor,
   SYSTEM_COLUMN,
@@ -27,11 +24,9 @@ import {
 } from '../context';
 import { getCellValue, getDisplayText } from '../columns';
 import { getDndAccessibility, restrictToVerticalAxis } from '../dndModifiers';
-import { NEW_ROW_ID } from '../hooks/useGridEditing';
 import type { GridFeatures } from '../table';
 import { isDeepEqual } from '../utils';
 import { CellContent } from './CellContent';
-import { CellEditor } from './CellEditor';
 
 type GridRow = Row<GridFeatures, any>;
 
@@ -46,55 +41,6 @@ const cellTextSx = {
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
 } as const;
-
-const CommandCell = ({ row, rowId }: { row: any; rowId: string }) => {
-  const { editing } = useGridContext();
-  const isEditingThis = editing.editingRow?.rowId === rowId;
-  const isLocked = editing.isPending || (!!editing.editingRow && !isEditingThis);
-  if (isEditingThis) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-        <Tooltip title="Kaydet">
-          <span>
-            <IconButton size="small" aria-label="Kaydet" disabled={editing.isPending} onClick={editing.save}>
-              <CheckIcon fontSize="small" />
-            </IconButton>
-          </span>
-        </Tooltip>
-        <Tooltip title="İptal">
-          <span>
-            <IconButton size="small" aria-label="İptal" disabled={editing.isPending} onClick={editing.cancel}>
-              <CloseIcon fontSize="small" />
-            </IconButton>
-          </span>
-        </Tooltip>
-      </Box>
-    );
-  }
-  return (
-    <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-      <Tooltip title="Düzenle">
-        <span>
-          <IconButton
-            size="small"
-            aria-label="Düzenle"
-            disabled={isLocked}
-            onClick={() => editing.startEdit(rowId, row)}
-          >
-            <EditOutlinedIcon fontSize="small" />
-          </IconButton>
-        </span>
-      </Tooltip>
-      <Tooltip title="Sil">
-        <span>
-          <IconButton size="small" aria-label="Sil" disabled={isLocked} onClick={() => editing.requestDelete(row)}>
-            <DeleteOutlineIcon fontSize="small" />
-          </IconButton>
-        </span>
-      </Tooltip>
-    </Box>
-  );
-};
 
 type RowViewProps = {
   rowId: string;
@@ -112,7 +58,6 @@ const RowView = ({ rowId, data, dataIndex, isSelected, onToggleSelected, sortabl
     showRowLines,
     showColumnLines,
     rowAlternationEnabled,
-    editing,
     gridState,
     highlight,
     selection,
@@ -121,15 +66,13 @@ const RowView = ({ rowId, data, dataIndex, isSelected, onToggleSelected, sortabl
     showDragIcons,
     dragging,
   } = ctx;
-  const isNew = rowId === NEW_ROW_ID;
-  const isEditing = editing.editingRow?.rowId === rowId;
-  const rowKey = isNew ? undefined : selection.getGridKey(data);
+  const rowKey = selection.getGridKey(data);
   const isActiveDrag = dragging.activeRowId === rowId;
 
   const renderCell = (displayColumn: DisplayColumn, columnIndex: number): ReactNode => {
     switch (displayColumn.id) {
       case SYSTEM_COLUMN.drag:
-        if (isNew || !showDragIcons) return null;
+        if (!showDragIcons) return null;
         return (
           <Box
             {...sortable?.handleProps}
@@ -140,7 +83,6 @@ const RowView = ({ rowId, data, dataIndex, isSelected, onToggleSelected, sortabl
           </Box>
         );
       case SYSTEM_COLUMN.select:
-        if (isNew) return null;
         return (
           <Checkbox
             size="small"
@@ -151,8 +93,7 @@ const RowView = ({ rowId, data, dataIndex, isSelected, onToggleSelected, sortabl
             sx={{ p: 0.5 }}
           />
         );
-      case SYSTEM_COLUMN.radio: {
-        if (isNew) return null;
+      case SYSTEM_COLUMN.radio:
         return (
           <Box sx={{ textAlign: 'center' }}>
             <Checkbox
@@ -164,34 +105,28 @@ const RowView = ({ rowId, data, dataIndex, isSelected, onToggleSelected, sortabl
             />
           </Box>
         );
-      }
       case SYSTEM_COLUMN.actions:
-        return isNew ? null : actionMenuRender?.(data);
-      case SYSTEM_COLUMN.command:
-        return <CommandCell row={data} rowId={rowId} />;
+        // Aksiyon butonlarına tıklamak satırı seçmesin
+        return (
+          <Box
+            onClick={(event) => event.stopPropagation()}
+            sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.25 }}
+          >
+            {actionMenuRender?.(data)}
+          </Box>
+        );
       default: {
         const column = displayColumn.column;
         if (!column) return null;
-        if (isEditing && column.allowEditing && column.dataField) {
-          return (
-            <CellEditor
-              column={column}
-              value={editing.editingRow?.values[column.dataField]}
-              onChange={(value) => editing.setValue(column.dataField as string, value)}
-              autoFocus={columnIndex === displayColumns.findIndex((c) => c.kind === 'data')}
-            />
-          );
-        }
         return (
           <CellContent
             column={column}
-            value={isNew ? undefined : getCellValue(column, data)}
+            value={getCellValue(column, data)}
             row={data}
             rowKey={rowKey}
             rowIndex={dataIndex}
             columnIndex={columnIndex}
             isSelected={isSelected}
-            isEditing={isEditing}
             searchText={gridState.searchText}
             highlight={highlight}
           />
@@ -205,9 +140,7 @@ const RowView = ({ rowId, data, dataIndex, isSelected, onToggleSelected, sortabl
       ref={sortable?.setNodeRef}
       style={sortable?.style}
       aria-selected={isSelected}
-      onClick={(event) => {
-        if (!isNew && !isEditing) ctx.onRowClick(data, event);
-      }}
+      onClick={(event) => ctx.onRowClick(data, event)}
       {...(!showDragIcons && sortable ? sortable.handleProps : {})}
       sx={(theme) => ({
         backgroundColor: isSelected
@@ -215,6 +148,7 @@ const RowView = ({ rowId, data, dataIndex, isSelected, onToggleSelected, sortabl
           : rowAlternationEnabled && dataIndex % 2 === 1
             ? getZebraColor(theme)
             : theme.palette.background.paper,
+        ...(!isSelected && { '&:hover': { backgroundColor: getHoverRowColor(theme) } }),
         ...(isActiveDrag && {
           outline: `2px solid ${dragging.isDropAllowed ? theme.palette.primary.main : theme.palette.error.main}`,
           position: 'relative',
@@ -229,7 +163,7 @@ const RowView = ({ rowId, data, dataIndex, isSelected, onToggleSelected, sortabl
           padding={displayColumn.kind === 'data' ? 'normal' : 'none'}
           sx={[
             getCellSx(displayColumn, { showRowLines, showColumnLines }),
-            { px: displayColumn.kind === 'data' ? 1 : 0, py: isEditing ? 0.25 : 0.75, fontSize: '0.8125rem' },
+            { px: displayColumn.kind === 'data' ? 1 : 0, py: 0.5, height: 44, fontSize: '0.8125rem' },
             cellTextSx,
           ]}
         >
@@ -311,24 +245,24 @@ const GroupRow = ({ row }: { row: GridRow }) => {
 
 export const GridBody = () => {
   const ctx = useGridContext();
-  const { table, displayColumns, editing, noDataText, isRowDraggingEnabled, dragging, selection } = ctx;
+  const { table, displayColumns, noDataText, isRowDraggingEnabled, dragging, selection } = ctx;
   const rows = table.getRowModel().rows;
   const dataRows = rows.filter((row) => !row.getIsGrouped());
   let dataIndex = -1;
 
   const body = (
     <TableBody>
-      {editing.editingRow?.rowId === NEW_ROW_ID && (
-        <RowView rowId={NEW_ROW_ID} data={editing.editingRow.values} dataIndex={-1} isSelected={false} />
-      )}
-      {rows.length === 0 && editing.editingRow?.rowId !== NEW_ROW_ID && (
+      {rows.length === 0 && (
         <TableRow>
           <TableCell
             colSpan={displayColumns.length}
             align="center"
-            sx={{ py: 4, color: 'text.secondary', fontSize: '0.8125rem' }}
+            sx={{ py: 6, color: 'text.secondary', fontSize: '0.875rem', borderBottom: 'none' }}
           >
-            {noDataText}
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+              <InboxOutlinedIcon sx={{ fontSize: 40, color: 'action.disabled' }} />
+              {noDataText}
+            </Box>
           </TableCell>
         </TableRow>
       )}

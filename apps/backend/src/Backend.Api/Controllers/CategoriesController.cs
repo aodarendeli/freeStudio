@@ -16,7 +16,7 @@ public class CategoriesController(
     IValidator<UpdateCategoryDto> updateValidator)
     : ControllerBase
 {
-    [HttpPost]
+    [HttpPost("create")]
     [Authorize(Policy = Policies.Admin)]
     public async Task<IActionResult> Create([FromBody] CreateCategoryDto dto, CancellationToken ct)
     {
@@ -39,6 +39,16 @@ public class CategoriesController(
         return Ok(ApiResponse<IReadOnlyList<CategoryDto>>.Ok(items, meta: meta));
     }
 
+    /// <summary>Liste. Sayfa bilgisi body ile gelir: { page, size }</summary>
+    [HttpPost]
+    [AllowAnonymous]
+    public async Task<IActionResult> List([FromBody] CategorySearchDto search, CancellationToken ct)
+    {
+        var (items, meta) = await categoryService.GetAllAsync(
+            new CategoryQueryDto(Math.Max(1, search.Page), Math.Clamp(search.Size, 1, 200)), ct);
+        return Ok(PagedResponse<CategoryDto>.Ok(items, meta));
+    }
+
     [HttpGet("{id}")]
     [AllowAnonymous]
     public async Task<IActionResult> GetById(string id, CancellationToken ct)
@@ -47,7 +57,7 @@ public class CategoriesController(
         return Ok(ApiResponse<CategoryDto>.Ok(category));
     }
 
-    [HttpPut("{id}")]
+    [HttpPut("update/{id}")]
     [Authorize(Policy = Policies.Admin)]
     public async Task<IActionResult> Update(string id, [FromBody] UpdateCategoryDto dto, CancellationToken ct)
     {
@@ -62,7 +72,7 @@ public class CategoriesController(
         return Ok(ApiResponse<CategoryDto>.Ok(category, "Updated successfully"));
     }
 
-    [HttpDelete("{id}")]
+    [HttpDelete("delete/{id}")]
     [Authorize(Policy = Policies.Admin)]
     public async Task<IActionResult> Delete(string id, CancellationToken ct)
     {

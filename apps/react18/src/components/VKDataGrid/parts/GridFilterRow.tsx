@@ -55,7 +55,11 @@ const DateInput = ({ column, value, onChange, placeholder }: ValueInputProps) =>
           fullWidth: true,
           placeholder,
           inputProps: { 'aria-label': `${column.caption} filtresi` },
-          sx: { '& input': inputSx },
+          sx: {
+            '& input, & .MuiPickersInputBase-root, & .MuiPickersSectionList-root': inputSx,
+            '& .MuiIconButton-root': { p: 0.25 },
+            '& .MuiSvgIcon-root': { fontSize: 18 },
+          },
         },
       }}
     />
@@ -112,7 +116,7 @@ const SingleValueInput = (props: ValueInputProps) => {
       variant="standard"
       size="small"
       fullWidth
-      placeholder={placeholder}
+      placeholder={placeholder ?? 'Filtrele'}
       value={isNil(value) ? '' : String(value)}
       onDebouncedChange={(text) => onChange(isNumber ? parseNumber(text) : text)}
       slotProps={{
@@ -173,9 +177,9 @@ const FilterCellContent = ({ column, state }: { column: GridColumn; state?: Colu
               size="small"
               aria-label="Filtre operatörü"
               onClick={(event) => setMenuAnchor(event.currentTarget)}
-              sx={{ p: 0.25 }}
+              sx={{ p: 0.25, color: state?.operator ? 'primary.main' : 'action.active' }}
             >
-              <SearchIcon fontSize="small" />
+              <SearchIcon sx={{ fontSize: 18 }} />
             </IconButton>
           </Tooltip>
           <Menu anchorEl={menuAnchor} open={!!menuAnchor} onClose={() => setMenuAnchor(null)}>
@@ -231,7 +235,7 @@ const FilterCell = memo(
         padding="none"
         sx={[
           getCellSx(displayColumn, { showRowLines, showColumnLines, isHeader: true }),
-          { px: 1, py: 0.5 },
+          (theme) => ({ px: 1, py: 0.5, height: 42, backgroundColor: theme.palette.background.paper }),
         ]}
       >
         {column && column.allowFiltering && <FilterCellContent column={column} state={state} />}

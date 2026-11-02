@@ -96,6 +96,7 @@ type VKDataGridProps = {
 
   rowKeyExpr?: string;
 
+  /** Checkbox sütunuyla çoklu seçim. `false` iken satıra tıklayınca tek satır seçilir. Default = false */
   multipleSelection?: boolean;
 
   singleRowRadioSelection?: boolean;
@@ -118,22 +119,32 @@ type VKDataGridProps = {
 
   summary?: Summary;
 
-  /** Enables CRUD support with Create, Update, Delete buttons */
+  /**
+   * @deprecated Etkisi yok. Grid satır içi ekleme/düzenleme/silme yapmaz;
+   * bu işlemler `rowSelectionChange` ile gelen seçime göre kullanan projede yapılır.
+   * Mevcut projeler derlenmeye devam etsin diye tipte bırakıldı.
+   */
   isCrud?: boolean;
-  /** Called when a new row is created */
+  /** @deprecated Etkisi yok, bkz. `isCrud` */
   onCreate?: (values: any) => Promise<any>;
-  /** Called when a row is updated */
+  /** @deprecated Etkisi yok, bkz. `isCrud` */
   onUpdate?: (key: any, values: any) => Promise<any>;
-  /** Called when a row is deleted */
+  /** @deprecated Etkisi yok, bkz. `isCrud` */
   onDelete?: (key: any) => Promise<any>;
 
+  /** Her satırın en sağında gösterilecek aksiyonlar, örn. düzenle / sil butonları */
   actionMenuRender?: (rowData: any) => ReactNode;
 
   isExportAllButtonVisible?: boolean;
 
   isSelected?: boolean;
 
-  exportDataAllMethod?: () => void;
+  /**
+   * "Tüm Veriyi Dışa Aktar" butonu. Grid veri çekmez; dosyayı projenin backend'i üretir.
+   * Grid'in o anki filtre / arama / sıralaması parametre olarak gelir (sayfa bilgisi yok sayılmalı).
+   * Promise dönülürse bitene kadar buton yükleniyor durumunda kalır, hata olursa uyarı gösterilir.
+   */
+  exportDataAllMethod?: (options: FiltersChangesTypes) => void | Promise<unknown>;
 
   /** Seçim yapılması gereksiz ise kullanılabilir. Default false */
   /* disableSelection?: boolean; */

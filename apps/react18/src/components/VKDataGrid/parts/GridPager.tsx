@@ -37,25 +37,30 @@ export const GridPager = ({
 
   return (
     <Box
-      sx={{
+      sx={(theme) => ({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         flexWrap: 'wrap',
         gap: 1,
-        px: 1,
-        py: 0.75,
-      }}
+        px: 1.5,
+        py: 1,
+        borderTop: `1px solid ${theme.palette.divider}`,
+      })}
     >
-      <Box>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        {showPageSizeSelector && sizes.length > 0 && (
+          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8125rem' }}>
+            Sayfa başına
+          </Typography>
+        )}
         {showPageSizeSelector && sizes.length > 0 && (
           <Select
             size="small"
-            variant="standard"
             value={pageSize}
             onChange={(event) => onPageSizeChange(Number(event.target.value))}
             inputProps={{ 'aria-label': 'Sayfa başına satır' }}
-            sx={{ fontSize: '0.8125rem' }}
+            sx={{ fontSize: '0.8125rem', height: 30, '& .MuiSelect-select': { py: 0.5 } }}
           >
             {sizes.map((size) => (
               <MenuItem key={size} value={size}>

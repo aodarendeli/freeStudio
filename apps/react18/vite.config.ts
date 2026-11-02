@@ -8,4 +8,12 @@ export default defineConfig({
     react(),
     // babel({ presets: [reactCompilerPreset()] })
   ],
+  
+  server: {
+    port: 3000,
+    // Backend CORS listesine dokunmadan yerel API'ye erişim (Backend.Api http profili)
+    proxy: {
+      '/api': 'http://localhost:5108',
+    },
+  },
 })

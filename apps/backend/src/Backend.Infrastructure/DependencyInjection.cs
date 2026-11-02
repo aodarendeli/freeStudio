@@ -1,3 +1,4 @@
+using Backend.Application.Articles;
 using Backend.Application.Categories;
 using Backend.Application.Email;
 using Backend.Application.Menu;
@@ -21,10 +22,20 @@ public static class DependencyInjection
         services.AddDbContext<AppDbContext>(options =>
             options.UseNpgsql(configuration.GetConnectionString("Default")));
 
+        var redisConnectionString = configuration.GetSection(RedisOptions.SectionName)["ConnectionString"]
+            ?? "localhost:6379";
+
         services.Configure<RedisOptions>(configuration.GetSection(RedisOptions.SectionName));
-        services.AddSingleton<IConnectionMultiplexer>(_ =>
-            ConnectionMultiplexer.Connect(configuration.GetSection(RedisOptions.SectionName)["ConnectionString"]
-                ?? "localhost:6379"));
+        var redis = new Lazy<IConnectionMultiplexer>(() => ConnectionMultiplexer.Connect(redisConnectionString));
+        services.AddSingleton(_ => redis.Value);
+
+        // HybridCache: L1 = process RAM, L2 = Redis (IDistributedCache üzerinden, aynı bağlantı paylaşılır).
+        services.AddStackExchangeRedisCache(options =>
+        {
+            options.ConnectionMultiplexerFactory = () => Task.FromResult(redis.Value);
+            options.InstanceName = "backend:";
+        });
+        services.AddHybridCache();
 
         services.Configure<SmtpOptions>(configuration.GetSection(SmtpOptions.SectionName));
         services.AddScoped<IEmailSender, SmtpEmailSender>();
@@ -33,6 +44,7 @@ public static class DependencyInjection
         services.AddScoped<IProductRepository, ProductRepository>();
         services.AddScoped<IMenuItemRepository, MenuItemRepository>();
         services.AddScoped<ISeoMetadataRepository, SeoMetadataRepository>();
+        services.AddScoped<IArticleRepository, ArticleRepository>();
 
         return services;
     }

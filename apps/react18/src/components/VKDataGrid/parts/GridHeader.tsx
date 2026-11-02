@@ -151,7 +151,7 @@ const HeaderCell = ({
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
-            fontWeight: isHeaderBold ? 700 : 500,
+            fontWeight: isHeaderBold ? 700 : 600,
             flex: column.alignment === 'right' ? '1 1 auto' : '0 1 auto',
             textAlign: column.alignment,
           }}
@@ -180,7 +180,14 @@ const HeaderCell = ({
                 setFilterAnchor(event.currentTarget);
               }}
               onPointerDown={(event) => event.stopPropagation()}
-              sx={{ p: 0.25, ml: 'auto' }}
+              className="vk-header-filter"
+              sx={{
+                p: 0.25,
+                ml: 'auto',
+                opacity: filterState?.values?.length ? 1 : 0,
+                transition: 'opacity 120ms',
+                '&:focus-visible': { opacity: 1 },
+              }}
             >
               {filterState?.values?.length ? (
                 <FilterAltIcon sx={{ fontSize: 16 }} color="primary" />
@@ -227,6 +234,8 @@ const HeaderCell = ({
               cursor: canSort ? 'pointer' : 'default',
               whiteSpace: 'nowrap',
               overflow: 'hidden',
+              height: 44,
+              '&:hover .vk-header-filter': { opacity: 1 },
             }),
           ]}
         >

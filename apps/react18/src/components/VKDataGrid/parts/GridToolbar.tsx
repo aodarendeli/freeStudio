@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import Box from '@mui/material/Box';
+import CircularProgress from '@mui/material/CircularProgress';
 import IconButton from '@mui/material/IconButton';
 import InputAdornment from '@mui/material/InputAdornment';
 import Tooltip from '@mui/material/Tooltip';
-import AddIcon from '@mui/icons-material/Add';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import IosShareIcon from '@mui/icons-material/IosShare';
 import LibraryAddCheckOutlinedIcon from '@mui/icons-material/LibraryAddCheckOutlined';
@@ -22,15 +22,13 @@ type GridToolbarProps = {
   searchText: string;
   onSearch: (text: string) => void;
   columnChooser: { enabled?: boolean; allowSearch?: boolean; title?: string };
-  showAddButton: boolean;
-  isAddDisabled: boolean;
-  onAdd: () => void;
   showExportButton: boolean;
   onExport: () => void;
   showPrintButton: boolean;
   onPrint?: () => void;
   showExportAllButton: boolean;
   onExportAll?: () => void;
+  isExportingAll: boolean;
   showExportSelectedButton: boolean;
   onExportSelected: () => void;
 };
@@ -55,7 +53,7 @@ const ToolbarButton = ({
   </Tooltip>
 );
 
-/** DevExtreme toolbar sırası: ekle, dışa aktar, sütun seçici, arama, sonra özel butonlar */
+/** Arama solda; dışa aktar, sütun seçici ve özel butonlar sağda */
 export const GridToolbar = (props: GridToolbarProps) => {
   const [chooserAnchor, setChooserAnchor] = useState<HTMLElement | null>(null);
   const {
@@ -65,21 +63,18 @@ export const GridToolbar = (props: GridToolbarProps) => {
     searchText,
     onSearch,
     columnChooser,
-    showAddButton,
-    isAddDisabled,
-    onAdd,
     showExportButton,
     onExport,
     showPrintButton,
     onPrint,
     showExportAllButton,
     onExportAll,
+    isExportingAll,
     showExportSelectedButton,
     onExportSelected,
   } = props;
 
   const hasItems =
-    showAddButton ||
     showExportButton ||
     columnChooser.enabled ||
     searchVisible ||
@@ -91,13 +86,37 @@ export const GridToolbar = (props: GridToolbarProps) => {
   return (
     <Box
       role="toolbar"
-      sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 0.5, py: 0.75 }}
+      sx={(theme) => ({
+        display: 'flex',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: 1,
+        px: 1.5,
+        py: 1,
+        borderBottom: `1px solid ${theme.palette.divider}`,
+      })}
     >
-      {showAddButton && (
-        <ToolbarButton title="Satır Ekle" onClick={onAdd} disabled={isAddDisabled}>
-          <AddIcon fontSize="small" />
-        </ToolbarButton>
+      {searchVisible && (
+        <DebouncedTextField
+          size="small"
+          placeholder="Ara..."
+          value={searchText}
+          onDebouncedChange={onSearch}
+          sx={{ flex: { xs: '1 1 100%', sm: '0 1 280px' } }}
+          slotProps={{
+            htmlInput: { 'aria-label': 'Ara', style: { fontSize: '0.8125rem' } },
+            input: {
+              sx: { height: 34 },
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" color="action" />
+                </InputAdornment>
+              ),
+            },
+          }}
+        />
       )}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, ml: 'auto' }}>
       {showExportButton && (
         <ToolbarButton title="Excel'e Aktar" onClick={onExport}>
           <FileDownloadOutlinedIcon fontSize="small" />
@@ -123,33 +142,18 @@ export const GridToolbar = (props: GridToolbarProps) => {
           )}
         </>
       )}
-      {searchVisible && (
-        <DebouncedTextField
-          size="small"
-          placeholder="Ara..."
-          value={searchText}
-          onDebouncedChange={onSearch}
-          sx={{ width: { xs: '100%', sm: 220 } }}
-          slotProps={{
-            htmlInput: { 'aria-label': 'Ara', style: { fontSize: '0.8125rem' } },
-            input: {
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" />
-                </InputAdornment>
-              ),
-            },
-          }}
-        />
-      )}
       {showPrintButton && (
         <ToolbarButton title="Yazdır" onClick={() => onPrint?.()}>
           <PrintOutlinedIcon fontSize="small" />
         </ToolbarButton>
       )}
       {showExportAllButton && (
-        <ToolbarButton title="Tüm Veriyi Dışa Aktar" onClick={() => onExportAll?.()}>
-          <IosShareIcon fontSize="small" />
+        <ToolbarButton
+          title={isExportingAll ? 'Dışa aktarılıyor...' : 'Tüm Veriyi Dışa Aktar'}
+          onClick={() => onExportAll?.()}
+          disabled={isExportingAll}
+        >
+          {isExportingAll ? <CircularProgress size={18} /> : <IosShareIcon fontSize="small" />}
         </ToolbarButton>
       )}
       {showExportSelectedButton && (
@@ -157,6 +161,7 @@ export const GridToolbar = (props: GridToolbarProps) => {
           <LibraryAddCheckOutlinedIcon fontSize="small" />
         </ToolbarButton>
       )}
+      </Box>
     </Box>
   );
 };

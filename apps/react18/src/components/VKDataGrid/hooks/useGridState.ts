@@ -29,7 +29,6 @@ type UseGridStateArgs = {
   onFilterChange?: (options: FiltersChangesTypes) => void;
   handlePagingChanged?: (data: { size: number; page: number }) => void;
   paging?: PagingTypes;
-  totalCount: number;
   columns: GridColumn[];
   /** Filtre payload'u sadece görünür sütunlardan üretilir (DevExtreme `getVisibleColumns`) */
   getVisibleColumns: () => GridColumn[];
@@ -56,7 +55,6 @@ export const useGridState = ({
   onFilterChange,
   handlePagingChanged,
   paging,
-  totalCount,
   columns,
   getVisibleColumns,
 }: UseGridStateArgs) => {
@@ -217,13 +215,12 @@ export const useGridState = ({
         emitDataChange({ pageSize: nextPageSize });
         return;
       }
-      const lastPage = Math.max(0, Math.ceil(totalCount / nextPageSize) - 1);
-      const page = Math.min(stateRef.current.pageIndex, lastPage);
-      setPageIndex(page);
+      // Server mod ile aynı kural: sayfa boyutu değişince 1. sayfaya dönülür
+      setPageIndex(0);
       latestOptionsRef.current.pageSize = nextPageSize;
-      callbacksRef.current.handlePagingChanged?.({ size: nextPageSize, page });
+      callbacksRef.current.handlePagingChanged?.({ size: nextPageSize, page: 0 });
     },
-    [isServerMode, emitDataChange, totalCount]
+    [isServerMode, emitDataChange]
   );
 
   const getFilters = useCallback(
