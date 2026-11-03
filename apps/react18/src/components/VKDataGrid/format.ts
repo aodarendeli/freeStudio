@@ -1,3 +1,7 @@
+/**
+ * Hücre biçimleme (tr-TR): para birimi, sayı, tarih.
+ * DevExtreme karşılığı: `Column.format` (`{ type: 'currency', precision }`, `'dd.MM.yyyy HH:mm'` gibi LDML kalıpları).
+ */
 import dayjs from 'dayjs';
 import 'dayjs/locale/tr';
 import { isNil, toDate } from './utils';

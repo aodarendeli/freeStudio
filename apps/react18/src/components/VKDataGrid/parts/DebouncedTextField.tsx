@@ -1,3 +1,6 @@
+/**
+ * 400 ms gecikmeli metin kutusu: arama ve metin filtresi her tuşta istek atmasın diye.
+ */
 import { useEffect, useRef, useState } from 'react';
 import TextField, { type TextFieldProps } from '@mui/material/TextField';
 

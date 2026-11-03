@@ -1,3 +1,7 @@
+/**
+ * Excel (.xlsx) üretimi (exceljs).
+ * DevExtreme karşılığı: `exportDataGrid` + `onExporting`.
+ */
 import { getCellValue, getDisplayText, type GridColumn } from '../columns';
 import { toDate } from '../utils';
 

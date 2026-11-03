@@ -1,3 +1,7 @@
+/**
+ * Sütun seçici (göster / gizle, arama).
+ * DevExtreme karşılığı: `<ColumnChooser enabled allowSearch title>`; `allowHiding: false` sütunlar listelenmez.
+ */
 import { useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
 import Checkbox from '@mui/material/Checkbox';

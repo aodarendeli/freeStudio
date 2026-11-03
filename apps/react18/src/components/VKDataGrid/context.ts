@@ -1,3 +1,7 @@
+/**
+ * Parçaların (başlık, gövde, filtre satırı, ...) ortak okuduğu grid context'i ve hücre renk / kenarlık stilleri.
+ * DevExtreme karşılığı: showRowLines / showColumnLines / rowAlternationEnabled görünüm ayarları.
+ */
 import { createContext, useContext, type ReactNode } from 'react';
 import { darken, lighten, type Theme } from '@mui/material/styles';
 import { grey } from '@mui/material/colors';

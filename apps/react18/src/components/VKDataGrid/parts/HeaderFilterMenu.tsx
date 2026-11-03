@@ -1,3 +1,9 @@
+/**
+ * Header filter penceresi: değer listesinden seçim, arama, Tamam / İptal.
+ * DevExtreme karşılığı: `<HeaderFilter>` + `Column.headerFilter.dataSource` (`headerFilterData`).
+ *
+ * HEADER FILTER: şu an kullanılmıyor (GridHeader içinde yorum satırında). Özellik açılınca tekrar bağlanır.
+ */
 import { useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';

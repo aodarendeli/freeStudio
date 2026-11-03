@@ -1,3 +1,7 @@
+/**
+ * Sütun tanımlarını (`columns` prop'u) iç modele çevirir; hücre değeri, lookup metni ve görünen metin.
+ * DevExtreme karşılığı: `<Column>` alanları (dataField, caption, lookup, format, calculateCellValue, fixed, ...).
+ */
 import type { ReactNode } from 'react';
 import { formatValue, type GridFormat } from './format';
 import { getByPath, isNil } from './utils';

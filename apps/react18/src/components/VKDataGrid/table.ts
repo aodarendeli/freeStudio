@@ -1,3 +1,6 @@
+/**
+ * TanStack Table v9 feature seti ve sütun tanımları (sistem sütunları: sürükleme, seçim, radio, aksiyon).
+ */
 import {
   columnGroupingFeature,
   columnOrderingFeature,

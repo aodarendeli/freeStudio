@@ -1,3 +1,9 @@
+/**
+ * Filtre / arama / sıralama kuralları (saf fonksiyonlar).
+ * - `buildActiveFilters`: `onFilterChange` payload'undaki `filter` listesi (eski `getCleanFilters`)
+ * - `applyLocal*`: basit modda (onFilterChange yok) DevExtreme'in sayfa verisinde yaptığı yerel işlemler
+ * DevExtreme karşılığı: `<FilterRow>`, `filterOperations`, `<SearchPanel>`, `<Sorting>`.
+ */
 import type { FilterTypes } from './VKDataGrid.types';
 import { getCellValue, getDisplayText, getLookupText, type GridColumn } from './columns';
 import { isNil, toDate } from './utils';

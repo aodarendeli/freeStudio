@@ -1,17 +1,21 @@
+/**
+ * Başlık satırı: sıralama (tıklama / Ctrl / Shift / sağ tık menüsü), sütun sürükleme, genişletme tutamacı.
+ * DevExtreme karşılığı: `<Sorting>`, `allowColumnReordering`, `allowColumnResizing`, `<HeaderFilter>`.
+ */
 import { useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
 import Box from '@mui/material/Box';
 import Checkbox from '@mui/material/Checkbox';
-import IconButton from '@mui/material/IconButton';
+// HEADER FILTER: import IconButton from '@mui/material/IconButton';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
-import Tooltip from '@mui/material/Tooltip';
+// HEADER FILTER: import Tooltip from '@mui/material/Tooltip';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
-import FilterAltIcon from '@mui/icons-material/FilterAlt';
-import FilterAltOutlinedIcon from '@mui/icons-material/FilterAltOutlined';
+// HEADER FILTER: import FilterAltIcon from '@mui/icons-material/FilterAlt';
+// HEADER FILTER: import FilterAltOutlinedIcon from '@mui/icons-material/FilterAltOutlined';
 import {
   closestCenter,
   DndContext,
@@ -24,10 +28,12 @@ import { getDndAccessibility, restrictToHorizontalAxis } from '../dndModifiers';
 import { arrayMove, horizontalListSortingStrategy, SortableContext, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { getCellSx, SYSTEM_COLUMN, useGridContext, type DisplayColumn } from '../context';
-import { getHeaderFilterItems } from '../columns';
+// HEADER FILTER: import { getHeaderFilterItems } from '../columns';
 import type { SortRule } from '../filtering';
 import { GridFilterRow } from './GridFilterRow';
-import { HeaderFilterMenu } from './HeaderFilterMenu';
+// HEADER FILTER: import { HeaderFilterMenu } from './HeaderFilterMenu';
+
+// Header filter şimdilik kapalı (yorum satırında). Açmak için bu dosyadaki `HEADER FILTER` notlu satırları geri alın.
 
 const SORT_TEXTS = {
   ascendingText: 'Artan Sırala',
@@ -81,28 +87,31 @@ const HeaderCell = ({
     sortingConfig,
     showColumnLines,
     isHeaderBold,
-    headerFilter,
-    headerFilterData,
-    pageData,
+    // HEADER FILTER: headerFilter,
+    // HEADER FILTER: headerFilterData,
+    // HEADER FILTER: pageData,
     allowColumnResizing,
     allowColumnReordering,
     registerHeaderCell,
     startColumnResize,
   } = ctx;
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
-  const [filterAnchor, setFilterAnchor] = useState<HTMLElement | null>(null);
+  // HEADER FILTER: const [filterAnchor, setFilterAnchor] = useState<HTMLElement | null>(null);
   const column = displayColumn.column;
   const sortMode = sortingConfig.mode ?? 'single';
   const canSort = !!column && column.allowSorting && sortMode !== 'none';
   const sortRule = gridState.sorting.find((rule) => rule.id === displayColumn.id);
   const sortIndex = gridState.sorting.findIndex((rule) => rule.id === displayColumn.id);
-  const filterState = gridState.filters[displayColumn.id];
-  const canHeaderFilter = !!column && headerFilter && column.allowHeaderFiltering;
+  // HEADER FILTER: const filterState = gridState.filters[displayColumn.id];
+  // HEADER FILTER: const canHeaderFilter = !!column && headerFilter && column.allowHeaderFiltering;
   const canReorder = allowColumnReordering && !!column && !displayColumn.pinned;
 
   const applySorting = (next: SortRule[]) => gridState.changeSorting(next, displayColumn.id);
 
   const handleSortClick = (event: React.MouseEvent) => {
+    // Hata düzeltmesi: menüler portal ile çizilir ama React tıklamayı yine buraya taşır;
+    // menü içindeki tıklamalar sıralamayı tetiklemesin
+    if (!event.currentTarget.contains(event.target as Node)) return;
     if (!canSort || isDraggingRef.current) return;
     const { sorting } = gridState;
     if (event.ctrlKey || event.metaKey) {
@@ -170,6 +179,7 @@ const HeaderCell = ({
             {sortIndex + 1}
           </Box>
         )}
+        {/* HEADER FILTER:
         {canHeaderFilter && (
           <Tooltip title="Filtrele">
             <IconButton
@@ -197,6 +207,7 @@ const HeaderCell = ({
             </IconButton>
           </Tooltip>
         )}
+        */}
       </Box>
     );
   }
@@ -235,7 +246,7 @@ const HeaderCell = ({
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               height: 44,
-              '&:hover .vk-header-filter': { opacity: 1 },
+              // HEADER FILTER: '&:hover .vk-header-filter': { opacity: 1 },
             }),
           ]}
         >
@@ -281,6 +292,7 @@ const HeaderCell = ({
               </MenuItem>
             </Menu>
           )}
+          {/* HEADER FILTER:
           {filterAnchor && column && (
             <HeaderFilterMenu
               anchorEl={filterAnchor}
@@ -290,6 +302,7 @@ const HeaderCell = ({
               onClose={() => setFilterAnchor(null)}
             />
           )}
+          */}
         </TableCell>
       )}
     </SortableHeaderCell>

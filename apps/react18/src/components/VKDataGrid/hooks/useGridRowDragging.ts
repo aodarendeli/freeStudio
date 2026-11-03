@@ -1,3 +1,8 @@
+/**
+ * Satır sürükleme (dnd-kit).
+ * DevExtreme karşılığı: `<RowDragging allowReordering showDragIcons onReorder>`; varsayılan bırakma kuralı
+ * kaynak ve hedef satırın `isNonDraggable !== true` olmasıdır.
+ */
 import { useCallback, useState, type Dispatch, type SetStateAction } from 'react';
 import {
   KeyboardSensor,

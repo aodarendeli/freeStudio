@@ -1,8 +1,14 @@
+/**
+ * Sayfalayıcı: sayfa boyutu ve sayfa butonları (yuvarlak, seçili olan tema ana renginde), bilgi metni.
+ * DevExtreme karşılığı: `<Pager>` (`infoText="Sayfa {0}/{1} ({2} öğeler)"`).
+ */
 import Box from '@mui/material/Box';
-import MenuItem from '@mui/material/MenuItem';
 import Pagination from '@mui/material/Pagination';
-import Select from '@mui/material/Select';
+import PaginationItem from '@mui/material/PaginationItem';
 import Typography from '@mui/material/Typography';
+
+/** Sayfa ve sayfa boyutu butonları aynı görünür: yuvarlak, seçili olan primary zemin + beyaz yazı */
+const roundItemSx = { fontSize: '0.8125rem', fontWeight: 500 } as const;
 
 type GridPagerProps = {
   pageIndex: number;
@@ -48,27 +54,21 @@ export const GridPager = ({
         borderTop: `1px solid ${theme.palette.divider}`,
       })}
     >
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        {showPageSizeSelector && sizes.length > 0 && (
-          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8125rem' }}>
-            Sayfa başına
-          </Typography>
-        )}
-        {showPageSizeSelector && sizes.length > 0 && (
-          <Select
-            size="small"
-            value={pageSize}
-            onChange={(event) => onPageSizeChange(Number(event.target.value))}
-            inputProps={{ 'aria-label': 'Sayfa başına satır' }}
-            sx={{ fontSize: '0.8125rem', height: 30, '& .MuiSelect-select': { py: 0.5 } }}
-          >
-            {sizes.map((size) => (
-              <MenuItem key={size} value={size}>
-                {size}
-              </MenuItem>
-            ))}
-          </Select>
-        )}
+      <Box role="group" aria-label="Sayfa başına satır" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        {showPageSizeSelector &&
+          sizes.map((size) => (
+            <PaginationItem
+              key={size}
+              page={size}
+              size="small"
+              color="primary"
+              selected={size === pageSize}
+              aria-label={`Sayfa başına ${size} satır`}
+              aria-pressed={size === pageSize}
+              onClick={() => size !== pageSize && onPageSizeChange(size)}
+              sx={roundItemSx}
+            />
+          ))}
       </Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
         {showInfo && (
@@ -78,7 +78,7 @@ export const GridPager = ({
         )}
         <Pagination
           size="small"
-          shape="rounded"
+          color="primary"
           count={pageCount}
           page={Math.min(pageIndex + 1, pageCount)}
           onChange={(_, page) => onPageChange(page - 1)}
@@ -86,8 +86,15 @@ export const GridPager = ({
           hideNextButton={!showNavigationButtons}
           siblingCount={isCompact ? 0 : 1}
           boundaryCount={isCompact ? 1 : 1}
+          renderItem={(item) => <PaginationItem {...item} sx={roundItemSx} />}
           getItemAriaLabel={(type, page) =>
-            type === 'page' ? `Sayfa ${page}` : type === 'next' ? 'Sonraki sayfa' : type === 'previous' ? 'Önceki sayfa' : type
+            type === 'page'
+              ? `Sayfa ${page}`
+              : type === 'next'
+                ? 'Sonraki sayfa'
+                : type === 'previous'
+                  ? 'Önceki sayfa'
+                  : type
           }
         />
       </Box>

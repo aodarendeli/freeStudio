@@ -1,3 +1,8 @@
+/**
+ * Sayfa / filtre / sıralama / arama durumu ve `onFilterChange` kuralları.
+ * DevExtreme karşılığı: eski `handleOptionChange` + `latestOptionsRef` + `isClearingRef`, ref API'deki
+ * `getFilters` / `resetFilters` / `applyFilters`. Kurallar için README.md > Server mod.
+ */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type {
   FiltersChangesTypes,
@@ -215,7 +220,8 @@ export const useGridState = ({
         emitDataChange({ pageSize: nextPageSize });
         return;
       }
-      // Server mod ile aynı kural: sayfa boyutu değişince 1. sayfaya dönülür
+      // Eskisinden farklı: basit modda sayfa numarası DevExtreme'den okunuyordu.
+      // Artık server mod ile aynı kural: sayfa boyutu değişince 1. sayfaya dönülür.
       setPageIndex(0);
       latestOptionsRef.current.pageSize = nextPageSize;
       callbacksRef.current.handlePagingChanged?.({ size: nextPageSize, page: 0 });
@@ -244,6 +250,8 @@ export const useGridState = ({
       } = options || {};
       if (isServerMode) setPageIndex(0);
       stateRef.current.pageIndex = isServerMode ? 0 : stateRef.current.pageIndex;
+      // Eskisinden farklı (hata düzeltmesi): eski kod `resetFilter ?? clearFilter()` yazıyordu ve
+      // varsayılanlar true olduğu için hiçbir şey temizlenmiyordu. Aynısı resetSort / resetSearch için.
       if (resetFilter) {
         stateRef.current.filters = {};
         setFilters({});
@@ -259,6 +267,7 @@ export const useGridState = ({
       latestOptionsRef.current = {
         ...latestOptionsRef.current,
         ...(resetFilter && { filters: [] }),
+        // Hata düzeltmesi: eski kodda resetSort -> searchText, resetSearch -> sort olarak ters bağlıydı
         ...(resetSearch && { searchText: '' }),
         ...(resetSort && { sort: null }),
         pageSize: stateRef.current.pageSize,

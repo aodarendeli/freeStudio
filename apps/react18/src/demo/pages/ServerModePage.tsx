@@ -60,7 +60,7 @@ export const ServerModePage = ({ log }: DemoProps) => {
       },
       {
         dataField: 'actions',
-        caption: '',
+        caption: 'İşlemler',
         width: 90,
         alignment: 'center',
         allowSorting: false,

@@ -1,3 +1,7 @@
+/**
+ * Özet satırı: her seçenek için sütun toplamı (`{text}: {değer}`).
+ * DevExtreme karşılığı: `<Summary><TotalItem summaryType="sum">`.
+ */
 import TableCell from '@mui/material/TableCell';
 import TableFooter from '@mui/material/TableFooter';
 import TableRow from '@mui/material/TableRow';

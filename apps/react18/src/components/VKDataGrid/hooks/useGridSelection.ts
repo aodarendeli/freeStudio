@@ -1,3 +1,8 @@
+/**
+ * Sayfalar arası seçim: seçili satır nesneleri `internalSelectedData` içinde tutulur,
+ * sayfa değişince kaybolmaz. Algoritma eski `handleSelectionChange` ile aynıdır.
+ * DevExtreme karşılığı: `<Selection>` + `selectedRowKeys` + `onSelectionChanged` / `onContentReady` senkronu.
+ */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   InternalSelectedDataType,

@@ -1,3 +1,7 @@
+/**
+ * Hücre içeriği: `cellRender`, boolean checkbox, arama vurgusu.
+ * DevExtreme karşılığı: `Column.cellRender` (bilgi nesnesi aynı alanlarla verilir) ve `highlightSearchText`.
+ */
 import { Fragment, type ReactNode } from 'react';
 import Box from '@mui/material/Box';
 import Checkbox from '@mui/material/Checkbox';

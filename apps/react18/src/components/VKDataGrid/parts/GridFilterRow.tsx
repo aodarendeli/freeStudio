@@ -1,3 +1,7 @@
+/**
+ * Filtre satırı: metin / sayı / tarih / lookup / boolean kutuları ve operatör menüsü.
+ * DevExtreme karşılığı: `<FilterRow visible showAllText resetOperationText>` + `Column.filterOperations`.
+ */
 import { memo, useState } from 'react';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';

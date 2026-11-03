@@ -1,13 +1,18 @@
-import {
-  forwardRef,
-  useCallback,
-  useEffect,
-  useImperativeHandle,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+/**
+ * VKDataGrid: TanStack Table v9 + MUI v6 tabanlı veri tablosu.
+ * Props ve ref arayüzü DevExtreme `DataGrid` tabanlı önceki sürümle aynıdır (bkz. README.md).
+ *
+ * Bu dosya sadece parçaları birbirine bağlar:
+ * - hooks/useGridOptions       prop varsayılanları
+ * - hooks/useGridState         sayfa / filtre / sıralama / arama + onFilterChange kuralları
+ * - hooks/useGridSelection     sayfalar arası seçim (internalSelectedData)
+ * - hooks/useRowClickSelection satır tıklama ve radio seçimi
+ * - hooks/useColumnLayout      sabit sütunlar, genişlik ölçme ve genişletme
+ * - hooks/useGridRowDragging   satır sürükleme
+ * - hooks/useGridExport        dışa aktarma ve uyarılar
+ * - parts/*                    araç çubuğu, başlık, filtre satırı, gövde, özet, sayfalayıcı
+ */
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Snackbar from '@mui/material/Snackbar';
@@ -25,68 +30,40 @@ import {
   type GroupingState,
   type RowSelectionState,
 } from '@tanstack/react-table';
-import type {
-  ExportingEvent,
-  FilterTypes,
-  ResetFilterOptions,
-  SelectionTypes,
-  SortingTypes,
-  VKDataGridProps,
-  VKDataGridRef,
-} from './VKDataGrid.types';
+import type { FilterTypes, ResetFilterOptions, SortingTypes, VKDataGridProps, VKDataGridRef } from './VKDataGrid.types';
 import { normalizeColumns, type GridColumn } from './columns';
-import { GridContext, SYSTEM_COLUMN, type DisplayColumn, type DisplayColumnKind, type GridContextValue } from './context';
+import { GridContext, type GridContextValue } from './context';
 import { applyLocalFilters, applyLocalSearch, applyLocalSort } from './filtering';
 import { buildColumnDefs, gridFeatures } from './table';
+import { resolvePageSizes, useGridOptions } from './hooks/useGridOptions';
 import { useGridState } from './hooks/useGridState';
 import { useGridSelection } from './hooks/useGridSelection';
+import { useRowClickSelection } from './hooks/useRowClickSelection';
+import { buildColumnPinning, useColumnLayout } from './hooks/useColumnLayout';
 import { useGridRowDragging } from './hooks/useGridRowDragging';
+import { useGridExport } from './hooks/useGridExport';
 import { GridToolbar } from './parts/GridToolbar';
 import { GridHeader } from './parts/GridHeader';
 import { GridBody } from './parts/GridBody';
 import { GridFooter } from './parts/GridFooter';
 import { GridPager } from './parts/GridPager';
-import { exportToExcel } from './export/exportExcel';
-import { isDeepEqual, toPixelWidth } from './utils';
-
-const SYSTEM_COLUMN_WIDTHS: Record<string, number> = {
-  [SYSTEM_COLUMN.drag]: 36,
-  [SYSTEM_COLUMN.select]: 48,
-  [SYSTEM_COLUMN.radio]: 50,
-  [SYSTEM_COLUMN.actions]: 88,
-};
-
-const SYSTEM_KINDS: Record<string, DisplayColumnKind> = {
-  [SYSTEM_COLUMN.drag]: 'drag',
-  [SYSTEM_COLUMN.select]: 'select',
-  [SYSTEM_COLUMN.radio]: 'radio',
-  [SYSTEM_COLUMN.actions]: 'actions',
-};
-
-const MIN_COLUMN_WIDTH = 40;
-const FALLBACK_COLUMN_WIDTH = 120;
 
 const rowIdFromKey = (key: unknown) => (typeof key === 'object' && key !== null ? JSON.stringify(key) : String(key));
-
-/** DevExtreme `allowedPageSizes: 'auto'` davranışı */
-const resolvePageSizes = (sizes: unknown, pageSize: number): number[] => {
-  if (Array.isArray(sizes) && sizes.length) return sizes.map(Number).filter((n) => Number.isFinite(n) && n > 0);
-  return [Math.max(1, Math.floor(pageSize / 2)), pageSize, pageSize * 2];
-};
 
 const visibilityFromColumns = (columns: GridColumn[]): ColumnVisibilityState =>
   Object.fromEntries(columns.map((c) => [c.id, c.visible]));
 
+/** `groupIndex` verilen sütunlar başlangıç gruplamasıdır */
 const groupingFromColumns = (columns: GridColumn[]): GroupingState =>
   columns
     .filter((c) => typeof c.groupIndex === 'number')
     .sort((a, b) => (a.groupIndex as number) - (b.groupIndex as number))
     .map((c) => c.id);
 
+const toColWidth = (width: unknown) =>
+  typeof width === 'number' ? width : typeof width === 'string' && width !== 'auto' ? width : undefined;
+
 /**
- * TanStack Table v9 + MUI tabanlı veri tablosu.
- * Props ve ref arayüzü DevExtreme tabanlı önceki sürümle birebir aynıdır.
- *
  * @component
  * @example
  * ```tsx
@@ -112,6 +89,7 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
     isHeaderBold = false,
     rowAlternationEnabled = true,
     searchPanel,
+    // Eskisinden farklı: varsayılan true idi; checkbox'lı çoklu seçim artık açıkça istenir
     multipleSelection = false,
     allowedPageSizes = [5, 10, 20],
     summary,
@@ -139,70 +117,29 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
     isSelected = false,
   } = props;
 
-  // Stabil default option objeleri (her render'da yeni obje yaratmamak için)
-  const memoExportOptions = useMemo(
-    () => exportOptions ?? { enabled: true, allowExportSelectedData: true },
-    [exportOptions]
-  );
-  const memoScrolling = useMemo(
-    () => scrollingOption ?? { mode: 'standard', columnRenderingMode: 'standard', scrollByContent: false },
-    [scrollingOption]
-  );
-  const memoSearchPanel = useMemo(
-    () => searchPanel ?? { highlightSearchText: true, highlightCaseSensitive: true, visible: true },
-    [searchPanel]
-  );
-  const memoSelection = useMemo(
-    (): SelectionTypes =>
-      selection ??
-      ({
-        mode: multipleSelection ? 'multiple' : 'single',
-        selectAllMode: multipleSelection ? 'page' : 'none',
-        showCheckBoxesMode: multipleSelection ? 'always' : 'none',
-      } as SelectionTypes),
-    [selection, multipleSelection]
-  );
-  const memoPager = useMemo(
-    () =>
-      pager ?? {
-        showPageSizeSelector: true,
-        showInfo: true,
-        showNavigationButtons: true,
-        visible: true,
-        allowedPageSizes: allowedPageSizes,
-        displayMode: 'full',
-      },
-    [pager, allowedPageSizes]
-  );
-  const memoFilterRow = useMemo(() => ({ visible: true, ...filterRow }), [filterRow]);
-  const memoColumnChooser = useMemo(
-    () => columnChooserOption ?? { enabled: true, allowSearch: true, title: 'Sütun Seçici' },
-    [columnChooserOption]
-  );
-  const memoSorting = useMemo(() => sorting ?? {}, [sorting]);
+  const options = useGridOptions({
+    exportOptions,
+    scrollingOption,
+    searchPanel,
+    selection,
+    multipleSelection,
+    pager,
+    allowedPageSizes,
+    filterRow,
+    columnChooserOption,
+    sorting,
+  });
 
-  useEffect(() => {
-    if (memoScrolling.mode === 'virtual' || memoScrolling.mode === 'infinite') {
-      console.warn(`VKDataGrid: scrolling.mode="${memoScrolling.mode}" desteklenmiyor, standart kaydırma kullanılıyor.`);
-    }
-  }, [memoScrolling.mode]);
-
-  // --- Veri ---
+  // --- Veri: sürükleme açıkken yeni sıra iç state'te tutulur ---
   const isRowDraggingEnabled = !!props.rowDragging?.allowReordering;
   const [internalData, setInternalData] = useState<any[]>(dataSource);
   useEffect(() => {
     setInternalData(dataSource);
   }, [dataSource]);
-  const actualData = useMemo(
-    () => (isRowDraggingEnabled ? internalData : dataSource),
-    [internalData, dataSource, isRowDraggingEnabled]
-  );
+  const actualData = isRowDraggingEnabled ? internalData : dataSource;
 
   // --- Sütunlar ---
-  const gridColumns = useMemo(
-    () => normalizeColumns(columns, dataSource, columnWidth),
-    [columns, dataSource, columnWidth]
-  );
+  const gridColumns = useMemo(() => normalizeColumns(columns, dataSource, columnWidth), [columns, dataSource, columnWidth]);
   const columnsById = useMemo(() => new Map(gridColumns.map((c) => [c.id, c])), [gridColumns]);
 
   const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>(() =>
@@ -211,7 +148,7 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
   const visibilitySignature = gridColumns.map((c) => `${c.id}:${c.visible}`).join('|');
   useEffect(() => {
     setColumnVisibility(visibilityFromColumns(gridColumns));
-    // Sadece `visible` ayarları değişince kullanıcı seçimini ezer
+    // Sadece `visible` ayarları değişince kullanıcının sütun seçici tercihini ezer
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visibilitySignature]);
 
@@ -225,7 +162,6 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
   const [expanded, setExpanded] = useState<ExpandedState>(() => (grouping?.autoExpandAll === false ? {} : true));
   const [columnOrder, setColumnOrder] = useState<ColumnOrderState>([]);
   const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({});
-  const [isWidthFrozen, setIsWidthFrozen] = useState(false);
 
   const visibleDataColumns = useMemo(
     () => gridColumns.filter((c) => columnVisibility[c.id] !== false),
@@ -236,16 +172,10 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
   const getVisibleColumns = useCallback(() => visibleDataColumnsRef.current, []);
 
   // --- Sayfa / filtre / sıralama / arama ---
-  const gridState = useGridState({
-    onFilterChange,
-    handlePagingChanged,
-    paging,
-    columns: gridColumns,
-    getVisibleColumns,
-  });
+  const gridState = useGridState({ onFilterChange, handlePagingChanged, paging, columns: gridColumns, getVisibleColumns });
   const { isServerMode } = gridState;
 
-  /** Basit modda DevExtreme filtre/arama/sıralamayı sayfadaki veride yerel yapıyordu */
+  /** Basit modda (onFilterChange yok) DevExtreme filtre / arama / sıralamayı sayfadaki veride yapıyordu */
   const processedData = useMemo(() => {
     // Sayfa boyutu küçülünce yeni sayfa gelene kadar eski sayfanın fazla satırları görünmesin
     let rows = actualData.length > gridState.pageSize ? actualData.slice(0, gridState.pageSize) : actualData;
@@ -255,11 +185,8 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
       rows = applyLocalSort(rows, columnsById, gridState.sorting);
     }
     if (groupingState.length) {
-      rows = applyLocalSort(
-        rows,
-        columnsById,
-        groupingState.map((id) => ({ id, desc: gridState.sorting.find((r) => r.id === id)?.desc ?? false }))
-      );
+      const groupSort = groupingState.map((id) => ({ id, desc: gridState.sorting.find((r) => r.id === id)?.desc ?? false }));
+      rows = applyLocalSort(rows, columnsById, groupSort);
     }
     return rows;
   }, [
@@ -284,14 +211,13 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
     rowSelectionChange,
   });
   const { isKeyExistsInData, isRowSelected, applyPageSelection } = gridSelection;
-  const [selectedRadioRowKey, setSelectedRadioRowKey] = useState<unknown>(null);
 
   const getRowId = useCallback(
-    (row: any, index: number) =>
-      isKeyExistsInData && rowKeyExpr ? rowIdFromKey(row?.[rowKeyExpr]) : String(index),
+    (row: any, index: number) => (isKeyExistsInData && rowKeyExpr ? rowIdFromKey(row?.[rowKeyExpr]) : String(index)),
     [isKeyExistsInData, rowKeyExpr]
   );
 
+  // TanStack'in rowSelection state'i internalSelectedData'dan türetilir; değişiklik ona geri yazılır
   const rowSelectionState = useMemo<RowSelectionState>(() => {
     const state: RowSelectionState = {};
     processedData.forEach((row, index) => {
@@ -308,44 +234,37 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
     [rowSelectionState, processedData, getRowId, applyPageSelection]
   );
 
+  const rowClick = useRowClickSelection({
+    rowKeyExpr,
+    singleRowRadioSelection,
+    selectionConfig: options.selectionConfig,
+    pageData: processedData,
+    isRowSelected,
+    applyPageSelection,
+    rowSelectionChange,
+  });
+
   // --- TanStack tablo ---
-  const hasFixedColumn = useMemo(() => gridColumns.some((col) => col.fixed), [gridColumns]);
   const showSelectColumn =
-    memoSelection.mode === 'multiple' && memoSelection.showCheckBoxesMode !== 'none';
+    options.selectionConfig.mode === 'multiple' && options.selectionConfig.showCheckBoxesMode !== 'none';
+  const showDragIcons = props.rowDragging?.showDragIcons ?? true;
 
   const columnDefs = useMemo(
     () =>
       buildColumnDefs({
         columns: gridColumns,
-        showDragColumn: isRowDraggingEnabled && (props.rowDragging?.showDragIcons ?? true),
+        showDragColumn: isRowDraggingEnabled && showDragIcons,
         showSelectColumn,
         showRadioColumn: singleRowRadioSelection,
         showActionsColumn: !!actionMenuRender,
       }),
-    [
-      gridColumns,
-      isRowDraggingEnabled,
-      props.rowDragging?.showDragIcons,
-      showSelectColumn,
-      singleRowRadioSelection,
-      actionMenuRender,
-    ]
+    [gridColumns, isRowDraggingEnabled, showDragIcons, showSelectColumn, singleRowRadioSelection, actionMenuRender]
   );
 
-  const columnPinning = useMemo(() => {
-    // Eski ColumnFixing davranışı: seçim / sürükleme sütunları sadece fixed sütun varsa sabitlenir,
-    // aksiyon sütunu normal sütundur
-    const systemStart = hasFixedColumn
-      ? columnDefs.map((c) => c.id as string).filter((id) => SYSTEM_KINDS[id] && id !== SYSTEM_COLUMN.actions)
-      : [];
-    return {
-      start: [
-        ...systemStart,
-        ...gridColumns.filter((c) => c.fixed && c.fixedPosition === 'left').map((c) => c.id),
-      ],
-      end: gridColumns.filter((c) => c.fixed && c.fixedPosition === 'right').map((c) => c.id),
-    };
-  }, [columnDefs, gridColumns, hasFixedColumn]);
+  const columnPinning = useMemo(
+    () => buildColumnPinning(columnDefs.map((c) => c.id as string), gridColumns),
+    [columnDefs, gridColumns]
+  );
 
   const table = useTable({
     features: gridFeatures,
@@ -370,274 +289,86 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
     onRowSelectionChange: handleRowSelectionChange,
     manualSorting: true,
     enableRowSelection: (row) => !row.getIsGrouped(),
-    enableMultiRowSelection: memoSelection.mode === 'multiple',
+    enableMultiRowSelection: options.selectionConfig.mode === 'multiple',
     enableRowRangeSelection: false,
     groupedColumnMode: 'remove',
     autoResetExpanded: false,
   });
 
-  // --- Sütun genişlikleri ve sabit sütun ofsetleri ---
-  const headerCellsRef = useRef<Record<string, HTMLElement | null>>({});
-  const [measuredWidths, setMeasuredWidths] = useState<Record<string, number>>({});
-  const registerHeaderCell = useCallback((id: string, element: HTMLElement | null) => {
-    headerCellsRef.current[id] = element;
-  }, []);
-
-  const measureColumns = useCallback(() => {
-    const next: Record<string, number> = {};
-    Object.entries(headerCellsRef.current).forEach(([id, element]) => {
-      if (element) next[id] = Math.round(element.getBoundingClientRect().width);
-    });
-    setMeasuredWidths((prev) => (isDeepEqual(prev, next) ? prev : next));
-  }, []);
-
-  useLayoutEffect(() => {
-    measureColumns();
-  });
-  useEffect(() => {
-    window.addEventListener('resize', measureColumns);
-    return () => window.removeEventListener('resize', measureColumns);
-  }, [measureColumns]);
-
-  const orderedColumns = [
-    ...table.getStartVisibleLeafColumns().map((c) => ({ id: c.id, pinned: 'left' as const })),
-    ...table.getCenterVisibleLeafColumns().map((c) => ({ id: c.id, pinned: false as const })),
-    ...table.getEndVisibleLeafColumns().map((c) => ({ id: c.id, pinned: 'right' as const })),
-  ];
-
-  const displayColumns: DisplayColumn[] = useMemo(() => {
-    const result: DisplayColumn[] = orderedColumns.map(({ id, pinned }) => {
-      const column = columnsById.get(id);
-      return {
-        id,
-        kind: SYSTEM_KINDS[id] ?? 'data',
-        column,
-        width: SYSTEM_COLUMN_WIDTHS[id] ?? columnSizing[id] ?? column?.width,
-        pinned,
-      };
-    });
-    let left = 0;
-    result.forEach((col) => {
-      if (col.pinned !== 'left') return;
-      col.offset = left;
-      left += measuredWidths[col.id] ?? toPixelWidth(col.width) ?? 0;
-    });
-    let right = 0;
-    [...result].reverse().forEach((col) => {
-      if (col.pinned !== 'right') return;
-      col.offset = right;
-      right += measuredWidths[col.id] ?? toPixelWidth(col.width) ?? 0;
-    });
-    const lastLeft = result.filter((c) => c.pinned === 'left').at(-1);
-    const firstRight = result.find((c) => c.pinned === 'right');
-    if (lastLeft) lastLeft.isLastLeftPinned = true;
-    if (firstRight) firstRight.isFirstRightPinned = true;
-    return result;
-    // orderedColumns her render yeni dizi, imzası ile karşılaştırılıyor
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orderedColumns.map((c) => `${c.id}:${c.pinned}`).join('|'), columnsById, columnSizing, measuredWidths]);
-
-  const tableWidthStyle = useMemo(() => {
-    const widths = displayColumns.map((c) => toPixelWidth(c.width));
-    const known = widths.reduce<number>((sum, w) => sum + (w ?? 0), 0);
-    const unknownCount = widths.filter((w) => w === undefined).length;
-    if (isWidthFrozen && unknownCount === 0) return { width: known, minWidth: known };
-    return { width: '100%', minWidth: known + unknownCount * FALLBACK_COLUMN_WIDTH * 0.5 };
-  }, [displayColumns, isWidthFrozen]);
-
-  /** DevExtreme `columnResizingMode="widget"`: diğer sütunlar sabit kalır, tablo genişliği değişir */
-  const startColumnResize = useCallback(
-    (id: string, event: React.PointerEvent) => {
-      event.preventDefault();
-      const startX = event.clientX;
-      const frozen: ColumnSizingState = {};
-      displayColumns.forEach((col) => {
-        if (col.kind !== 'data') return;
-        frozen[col.id] = columnSizing[col.id] ?? measuredWidths[col.id] ?? toPixelWidth(col.width) ?? FALLBACK_COLUMN_WIDTH;
-      });
-      const startWidth = frozen[id] ?? FALLBACK_COLUMN_WIDTH;
-      setColumnSizing(frozen);
-      setIsWidthFrozen(true);
-
-      const onMove = (moveEvent: PointerEvent) => {
-        const width = Math.max(MIN_COLUMN_WIDTH, Math.round(startWidth + moveEvent.clientX - startX));
-        setColumnSizing((prev) => ({ ...prev, [id]: width }));
-      };
-      const onUp = () => {
-        window.removeEventListener('pointermove', onMove);
-        window.removeEventListener('pointerup', onUp);
-        // Bırakma sonrası gelen click başlıkta sıralamayı tetiklemesin
-        const suppressClick = (clickEvent: MouseEvent) => clickEvent.stopPropagation();
-        window.addEventListener('click', suppressClick, { capture: true, once: true });
-        setTimeout(() => window.removeEventListener('click', suppressClick, { capture: true }), 0);
-      };
-      window.addEventListener('pointermove', onMove);
-      window.addEventListener('pointerup', onUp);
-    },
-    [displayColumns, columnSizing, measuredWidths]
-  );
-
-  const [notification, setNotification] = useState<{ message: string; severity: 'warning' | 'error' } | null>(
-    null
-  );
-  const notifyError = useCallback((message: string) => setNotification({ message, severity: 'error' }), []);
+  const layout = useColumnLayout({ table, columnsById, columnSizing, setColumnSizing });
 
   // --- Satır sürükleme ---
   const visibleDataRows = table
     .getRowModel()
     .rows.filter((row) => !row.getIsGrouped())
     .map((row) => ({ id: row.id, data: row.original }));
-  const dragging = useGridRowDragging({
-    rowDragging: props.rowDragging,
-    rowKeyExpr,
-    visibleRows: visibleDataRows,
-    setInternalData,
-  });
-
-  // --- Satır tıklama: radio seçimi ve satıra tıklayarak seçim ---
-  const getRadioKey = useCallback((row: any) => (rowKeyExpr ? row?.[rowKeyExpr] : row), [rowKeyExpr]);
-
-  const handleRowClick = useCallback(
-    (row: any, event: React.MouseEvent) => {
-      if (singleRowRadioSelection) {
-        const key = getRadioKey(row);
-        if (!isDeepEqual(key, selectedRadioRowKey)) {
-          setSelectedRadioRowKey(key);
-          rowSelectionChange?.({ selectedRowsData: [row], selectedRowKeys: [key] });
-        }
-      }
-      const isCtrl = event.ctrlKey || event.metaKey;
-      const selected = isRowSelected(row);
-      const pageSelected = processedData.filter((r) => isRowSelected(r));
-      if (memoSelection.mode === 'single') {
-        if (isCtrl && selected) applyPageSelection([]);
-        else if (!selected) applyPageSelection([row]);
-        return;
-      }
-      if (memoSelection.showCheckBoxesMode === 'always' || isCtrl) {
-        applyPageSelection(selected ? pageSelected.filter((r) => r !== row) : [...pageSelected, row]);
-        return;
-      }
-      if (!(selected && pageSelected.length === 1)) applyPageSelection([row]);
-    },
-    [
-      singleRowRadioSelection,
-      getRadioKey,
-      selectedRadioRowKey,
-      rowSelectionChange,
-      isRowSelected,
-      processedData,
-      memoSelection,
-      applyPageSelection,
-    ]
-  );
+  const dragging = useGridRowDragging({ rowDragging: props.rowDragging, rowKeyExpr, visibleRows: visibleDataRows, setInternalData });
 
   // --- Dışa aktarma ---
   const rootRef = useRef<HTMLDivElement>(null);
-  const exportColumns = displayColumns.filter((c) => c.kind === 'data' && c.column).map((c) => c.column!);
+  const exporting = useGridExport({
+    rootRef,
+    exportColumns: layout.displayColumns.filter((c) => c.kind === 'data' && c.column).map((c) => c.column!),
+    selectedRows: gridSelection.internalSelectedData,
+    getRowKey: rowClick.getRadioKey,
+    getFilters: gridState.getFilters,
+    totalCount,
+    isSelected,
+    onExporting,
+    exportDataAllMethod,
+  });
 
-  const runExport = useCallback(
-    (rows: any[], selectedRowsOnly: boolean) => {
-      const event: ExportingEvent = {
-        component: {
-          getSelectedRowsData: () => gridSelection.internalSelectedData,
-          getSelectedRowKeys: () => gridSelection.internalSelectedData.map((row) => getRadioKey(row)),
-          getVisibleColumns: () => exportColumns.map((c) => c.raw),
-          getVisibleRows: () => rows.map((data) => ({ data, rowType: 'data' })),
-          pageIndex: () => gridState.pageIndex,
-          pageSize: () => gridState.pageSize,
-          totalCount: () => totalCount,
-        },
-        element: rootRef.current,
-        fileName: 'DataGrid',
-        format: 'xlsx',
-        selectedRowsOnly,
-        cancel: false,
-      };
-      onExporting?.(event);
-      if (event.cancel) return;
-      exportToExcel(rows, exportColumns, event.fileName).catch((error) => {
-        notifyError(error instanceof Error ? error.message : 'Dışa aktarma başarısız oldu.');
-      });
-    },
-    [gridSelection.internalSelectedData, getRadioKey, exportColumns, gridState.pageIndex, gridState.pageSize, totalCount, onExporting, notifyError]
-  );
-
-  const handleExportSelected = () => {
-    if (!gridSelection.internalSelectedData.length && isSelected) {
-      setNotification({ message: 'Lütfen önce en az 1 satır seçin.', severity: 'warning' });
-      return;
-    }
-    runExport(gridSelection.internalSelectedData, true);
-  };
-
-  const [isExportingAll, setIsExportingAll] = useState(false);
-  const handleExportAll = useCallback(async () => {
-    if (!exportDataAllMethod) return;
-    const result = exportDataAllMethod(gridState.getFilters());
-    if (!result || typeof (result as Promise<unknown>).then !== 'function') return;
-    setIsExportingAll(true);
-    try {
-      await result;
-    } catch (error) {
-      notifyError(error instanceof Error && error.message ? error.message : 'Dışa aktarma başarısız oldu.');
-    } finally {
-      setIsExportingAll(false);
-    }
-  }, [exportDataAllMethod, gridState, notifyError]);
-
-  // --- Ref API ---
+  // --- Ref API (VKDataGridRef) ---
   useImperativeHandle(
     ref,
     () => ({
       resetFilters: (resetFilterOptions?: ResetFilterOptions) => gridState.resetFilters(resetFilterOptions),
       getFilters: () => gridState.getFilters(),
-      applyFilters: (filters: FilterTypes[], sort: SortingTypes | null = null) =>
-        gridState.applyFilters(filters, sort),
+      applyFilters: (filters: FilterTypes[], sort: SortingTypes | null = null) => gridState.applyFilters(filters, sort),
     }),
     [gridState]
   );
 
-  // --- Sayfalayıcı ---
-  const pageSizes = resolvePageSizes(memoPager.allowedPageSizes ?? allowedPageSizes, gridState.pageSize);
+  const { pagerConfig } = options;
+  const pageSizes = resolvePageSizes(pagerConfig.allowedPageSizes ?? allowedPageSizes, gridState.pageSize);
   const isHeightFixed = height !== 'auto' && height !== undefined && height !== null;
 
   const contextValue: GridContextValue = {
     table,
-    displayColumns,
+    displayColumns: layout.displayColumns,
     allColumns: gridColumns,
     gridState,
     selection: gridSelection,
-    selectionConfig: memoSelection,
+    selectionConfig: options.selectionConfig,
     dragging,
     isRowDraggingEnabled,
-    showDragIcons: props.rowDragging?.showDragIcons ?? true,
+    showDragIcons,
     showRowLines,
     showColumnLines,
     rowAlternationEnabled,
     isHeaderBold,
     noDataText,
-    filterRowVisible: memoFilterRow.visible !== false,
-    showAllText: memoFilterRow.showAllText,
+    filterRowVisible: options.filterRowConfig.visible !== false,
+    showAllText: options.filterRowConfig.showAllText,
     resetOperationText: resetOperationText ?? 'Sıfırla',
     headerFilter,
     headerFilterData,
-    sortingConfig: memoSorting,
+    sortingConfig: options.sortingConfig,
     allowColumnResizing,
     allowColumnReordering,
     grouping,
     highlight: {
-      enabled: memoSearchPanel.highlightSearchText ?? true,
-      caseSensitive: memoSearchPanel.highlightCaseSensitive ?? false,
+      enabled: options.searchConfig.highlightSearchText ?? true,
+      caseSensitive: options.searchConfig.highlightCaseSensitive ?? false,
     },
     pageData: processedData,
     singleRowRadioSelection,
-    selectedRadioRowKey,
-    getRadioKey,
+    selectedRadioRowKey: rowClick.selectedRadioRowKey,
+    getRadioKey: rowClick.getRadioKey,
     actionMenuRender,
-    onRowClick: handleRowClick,
-    registerHeaderCell,
-    startColumnResize,
+    onRowClick: rowClick.handleRowClick,
+    registerHeaderCell: layout.registerHeaderCell,
+    startColumnResize: layout.startColumnResize,
     stickyHeader: isHeightFixed,
   };
 
@@ -651,7 +382,7 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
             flexDirection: 'column',
             width: '100%',
             minWidth: 0,
-            // Az satırda grid küçülür, `height` aşılınca gövde kayar
+            // Eskisinden farklı: `height` sabit yükseklik değil üst sınırdır; az satırda grid küçülür
             maxHeight: isHeightFixed ? height : undefined,
             backgroundColor: theme.palette.background.paper,
             ...(showBorders && {
@@ -664,19 +395,19 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
           <GridToolbar
             table={table}
             columns={gridColumns}
-            searchVisible={memoSearchPanel.visible ?? false}
+            searchVisible={options.searchConfig.visible ?? false}
             searchText={gridState.searchText}
             onSearch={gridState.changeSearch}
-            columnChooser={memoColumnChooser}
-            showExportButton={!!memoExportOptions.enabled}
-            onExport={() => runExport(processedData, false)}
+            columnChooser={options.columnChooserConfig}
+            showExportButton={!!options.exportConfig.enabled}
+            onExport={() => exporting.runExport(processedData, false)}
             showPrintButton={isPrintButtonVisible}
             onPrint={handlePrint}
             showExportAllButton={isExportAllButtonVisible}
-            onExportAll={handleExportAll}
-            isExportingAll={isExportingAll}
-            showExportSelectedButton={!!memoExportOptions.allowExportSelectedData}
-            onExportSelected={handleExportSelected}
+            onExportAll={exporting.exportAll}
+            isExportingAll={exporting.isExportingAll}
+            showExportSelectedButton={!!options.exportConfig.allowExportSelectedData}
+            onExportSelected={exporting.exportSelected}
           />
           <TableContainer
             sx={(theme) => ({
@@ -686,20 +417,10 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
               backgroundColor: theme.palette.background.paper,
             })}
           >
-            <Table size="small" sx={{ tableLayout: 'fixed', borderCollapse: 'separate', ...tableWidthStyle }}>
+            <Table size="small" sx={{ tableLayout: 'fixed', borderCollapse: 'separate', ...layout.tableWidthStyle }}>
               <colgroup>
-                {displayColumns.map((col) => (
-                  <col
-                    key={col.id}
-                    style={{
-                      width:
-                        typeof col.width === 'number'
-                          ? col.width
-                          : typeof col.width === 'string' && col.width !== 'auto'
-                            ? col.width
-                            : undefined,
-                    }}
-                  />
+                {layout.displayColumns.map((col) => (
+                  <col key={col.id} style={{ width: toColWidth(col.width) }} />
                 ))}
               </colgroup>
               <GridHeader />
@@ -707,35 +428,35 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
               {summary && summary.options?.length > 0 && <GridFooter summary={summary} />}
             </Table>
           </TableContainer>
-          {memoPager.visible !== false && (
+          {pagerConfig.visible !== false && (
             <GridPager
               pageIndex={gridState.pageIndex}
               pageSize={gridState.pageSize}
               totalCount={totalCount}
               allowedPageSizes={pageSizes}
-              showPageSizeSelector={memoPager.showPageSizeSelector ?? true}
-              showInfo={memoPager.showInfo ?? true}
-              showNavigationButtons={memoPager.showNavigationButtons ?? true}
-              displayMode={memoPager.displayMode}
+              showPageSizeSelector={pagerConfig.showPageSizeSelector ?? true}
+              showInfo={pagerConfig.showInfo ?? true}
+              showNavigationButtons={pagerConfig.showNavigationButtons ?? true}
+              displayMode={pagerConfig.displayMode}
               onPageChange={gridState.changePage}
               onPageSizeChange={gridState.changePageSize}
             />
           )}
         </Box>
 
+        {/* DevExtreme `notify` yerine: 2500 ms uyarı / hata bildirimi */}
         <Snackbar
-          open={!!notification}
+          open={!!exporting.notification}
           autoHideDuration={2500}
-          onClose={() => setNotification(null)}
+          onClose={exporting.closeNotification}
           anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
         >
-          {notification ? (
-            <Alert severity={notification.severity} variant="filled" onClose={() => setNotification(null)}>
-              {notification.message}
+          {exporting.notification ? (
+            <Alert severity={exporting.notification.severity} variant="filled" onClose={exporting.closeNotification}>
+              {exporting.notification.message}
             </Alert>
           ) : undefined}
         </Snackbar>
-
       </GridContext.Provider>
     </LocalizationProvider>
   );

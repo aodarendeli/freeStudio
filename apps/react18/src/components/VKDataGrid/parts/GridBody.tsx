@@ -1,3 +1,7 @@
+/**
+ * Tablo gövdesi: veri satırları, grup satırları, boş durum, satır sürükleme.
+ * DevExtreme karşılığı: satır çizimi + `<Grouping>` grup satırları + `noDataText`.
+ */
 import type { CSSProperties, ReactNode } from 'react';
 import Box from '@mui/material/Box';
 import Checkbox from '@mui/material/Checkbox';

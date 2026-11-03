@@ -1,3 +1,7 @@
+/**
+ * Araç çubuğu: arama ve butonlar sağa yaslı (Excel, sütun seçici, yazdır, tümünü / seçilileri dışa aktar).
+ * DevExtreme karşılığı: `<Toolbar>` + `<SearchPanel>` + özel butonlar.
+ */
 import { useState } from 'react';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -53,7 +57,7 @@ const ToolbarButton = ({
   </Tooltip>
 );
 
-/** Arama solda; dışa aktar, sütun seçici ve özel butonlar sağda */
+/** Hepsi sağa yaslı: arama, sağında dışa aktar / sütun seçici / yazdır butonları */
 export const GridToolbar = (props: GridToolbarProps) => {
   const [chooserAnchor, setChooserAnchor] = useState<HTMLElement | null>(null);
   const {
@@ -96,71 +100,84 @@ export const GridToolbar = (props: GridToolbarProps) => {
         borderBottom: `1px solid ${theme.palette.divider}`,
       })}
     >
-      {searchVisible && (
-        <DebouncedTextField
-          size="small"
-          placeholder="Ara..."
-          value={searchText}
-          onDebouncedChange={onSearch}
-          sx={{ flex: { xs: '1 1 100%', sm: '0 1 280px' } }}
-          slotProps={{
-            htmlInput: { 'aria-label': 'Ara', style: { fontSize: '0.8125rem' } },
-            input: {
-              sx: { height: 34 },
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" color="action" />
-                </InputAdornment>
-              ),
-            },
-          }}
-        />
-      )}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, ml: 'auto' }}>
-      {showExportButton && (
-        <ToolbarButton title="Excel'e Aktar" onClick={onExport}>
-          <FileDownloadOutlinedIcon fontSize="small" />
-        </ToolbarButton>
-      )}
-      {columnChooser.enabled && (
-        <>
-          <ToolbarButton
-            title={columnChooser.title ?? 'Sütun Seçici'}
-            onClick={(event) => setChooserAnchor(event.currentTarget)}
-          >
-            <ViewColumnOutlinedIcon fontSize="small" />
-          </ToolbarButton>
-          {chooserAnchor && (
-            <ColumnChooser
-              anchorEl={chooserAnchor}
-              onClose={() => setChooserAnchor(null)}
-              title={columnChooser.title ?? 'Sütun Seçici'}
-              allowSearch={columnChooser.allowSearch ?? false}
-              columns={columns}
-              table={table}
-            />
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 0.5,
+          ml: 'auto',
+          // Masaüstünde arama ve butonlar tek satırda; dar ekranda alt satıra geçer
+          flexWrap: { xs: 'wrap', sm: 'nowrap' },
+          justifyContent: 'flex-end',
+          width: { xs: '100%', sm: 'auto' },
+        }}
+      >
+        {searchVisible && (
+          <DebouncedTextField
+            size="small"
+            placeholder="Ara..."
+            value={searchText}
+            onDebouncedChange={onSearch}
+            sx={{ flex: { xs: '1 1 100%', sm: '0 1 280px' } }}
+            slotProps={{
+              htmlInput: { 'aria-label': 'Ara', style: { fontSize: '0.8125rem' } },
+              input: {
+                sx: { height: 34 },
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" color="action" />
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
+        )}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+          {showExportButton && (
+            <ToolbarButton title="Excel'e Aktar" onClick={onExport}>
+              <FileDownloadOutlinedIcon fontSize="small" />
+            </ToolbarButton>
           )}
-        </>
-      )}
-      {showPrintButton && (
-        <ToolbarButton title="Yazdır" onClick={() => onPrint?.()}>
-          <PrintOutlinedIcon fontSize="small" />
-        </ToolbarButton>
-      )}
-      {showExportAllButton && (
-        <ToolbarButton
-          title={isExportingAll ? 'Dışa aktarılıyor...' : 'Tüm Veriyi Dışa Aktar'}
-          onClick={() => onExportAll?.()}
-          disabled={isExportingAll}
-        >
-          {isExportingAll ? <CircularProgress size={18} /> : <IosShareIcon fontSize="small" />}
-        </ToolbarButton>
-      )}
-      {showExportSelectedButton && (
-        <ToolbarButton title="Seçili Satırları Dışa Aktar" onClick={onExportSelected}>
-          <LibraryAddCheckOutlinedIcon fontSize="small" />
-        </ToolbarButton>
-      )}
+          {columnChooser.enabled && (
+            <>
+              <ToolbarButton
+                title={columnChooser.title ?? 'Sütun Seçici'}
+                onClick={(event) => setChooserAnchor(event.currentTarget)}
+              >
+                <ViewColumnOutlinedIcon fontSize="small" />
+              </ToolbarButton>
+              {chooserAnchor && (
+                <ColumnChooser
+                  anchorEl={chooserAnchor}
+                  onClose={() => setChooserAnchor(null)}
+                  title={columnChooser.title ?? 'Sütun Seçici'}
+                  allowSearch={columnChooser.allowSearch ?? false}
+                  columns={columns}
+                  table={table}
+                />
+              )}
+            </>
+          )}
+          {showPrintButton && (
+            <ToolbarButton title="Yazdır" onClick={() => onPrint?.()}>
+              <PrintOutlinedIcon fontSize="small" />
+            </ToolbarButton>
+          )}
+          {showExportAllButton && (
+            <ToolbarButton
+              title={isExportingAll ? 'Dışa aktarılıyor...' : 'Tüm Veriyi Dışa Aktar'}
+              onClick={() => onExportAll?.()}
+              disabled={isExportingAll}
+            >
+              {isExportingAll ? <CircularProgress size={18} /> : <IosShareIcon fontSize="small" />}
+            </ToolbarButton>
+          )}
+          {showExportSelectedButton && (
+            <ToolbarButton title="Seçili Satırları Dışa Aktar" onClick={onExportSelected}>
+              <LibraryAddCheckOutlinedIcon fontSize="small" />
+            </ToolbarButton>
+          )}
+        </Box>
       </Box>
     </Box>
   );

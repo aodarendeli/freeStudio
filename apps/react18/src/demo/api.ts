@@ -69,8 +69,10 @@ const download = async (url: string, body: unknown, fallbackName: string) => {
     throw new ApiError(json?.message || `POST ${url} ${response.status}`, response.status);
   }
   const disposition = response.headers.get('Content-Disposition') ?? '';
-  const match = /filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/i.exec(disposition);
-  const fileName = match ? decodeURIComponent(match[1] ?? match[2]) : fallbackName;
+  // UTF-8 adı (filename*) Türkçe karakterleri taşır, varsa o tercih edilir
+  const encoded = /filename\*=UTF-8''([^;]+)/i.exec(disposition)?.[1];
+  const plain = /filename="?([^";]+)"?/i.exec(disposition)?.[1];
+  const fileName = encoded ? decodeURIComponent(encoded) : (plain ?? fallbackName);
   const href = URL.createObjectURL(await response.blob());
   const link = document.createElement('a');
   link.href = href;

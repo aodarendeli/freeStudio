@@ -1,3 +1,6 @@
+/**
+ * dnd-kit için eksen kısıtları: sütunlar yatay, satırlar dikey sürüklenir.
+ */
 import type { Modifier } from '@dnd-kit/core';
 
 export const restrictToHorizontalAxis: Modifier = ({ transform }) => ({ ...transform, y: 0 });
