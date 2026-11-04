@@ -6,6 +6,7 @@
  */
 import type { FilterTypes } from './VKDataGrid.types';
 import { getCellValue, getDisplayText, getLookupText, type GridColumn } from './columns';
+import dayjs from 'dayjs';
 import { isNil, toDate } from './utils';
 
 /** Bir sütunun filtre satırı / header filter durumu */
@@ -72,6 +73,19 @@ export const isHalfRange = (value: unknown) =>
 export const isColumnFilterActive = (state?: ColumnFilterState) =>
   !!state && (!isFilterValueEmpty(state.value) || (!!state.values && state.values.length > 0));
 
+/**
+ * Tarih filtresi DevExtreme'deki gibi yerel saatle metin olarak gönderilir:
+ * `date` -> "2026-11-11", `datetime` -> "2026-11-11T14:30:00".
+ * Date nesnesi gönderilirse JSON'da UTC'ye çevrilip bir gün kayıyordu ("2026-11-10T21:00:00.000Z").
+ */
+const serializeFilterValue = (column: GridColumn, value: any): any => {
+  if (Array.isArray(value)) return value.map((v) => serializeFilterValue(column, v));
+  if (column.dataType !== 'date' && column.dataType !== 'datetime') return value;
+  const date = toDate(value);
+  if (!date) return value;
+  return dayjs(date).format(column.dataType === 'date' ? 'YYYY-MM-DD' : 'YYYY-MM-DDTHH:mm:ss');
+};
+
 /** Görünür sütunlardan aktif filtre listesini üretir (mevcut `getCleanFilters`) */
 export const buildActiveFilters = (visibleColumns: GridColumn[], filters: FiltersState): FilterTypes[] =>
   visibleColumns
@@ -83,7 +97,7 @@ export const buildActiveFilters = (visibleColumns: GridColumn[], filters: Filter
         dataType: column.dataType || 'string',
         name: state.name ?? column.name,
         filterOperator: getPayloadOperation(column, state) as FilterTypes['filterOperator'],
-        filterValue: isFilterValueEmpty(state.value) ? undefined : state.value,
+        filterValue: isFilterValueEmpty(state.value) ? undefined : serializeFilterValue(column, state.value),
         ...(state.values && state.values.length > 0 && { filterValues: state.values }),
       };
     });

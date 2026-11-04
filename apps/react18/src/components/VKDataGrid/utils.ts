@@ -36,6 +36,11 @@ export const isNil = (value: unknown): value is null | undefined =>
 export const toDate = (value: unknown): Date | null => {
   if (isNil(value) || value === '') return null;
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  // "2026-11-11" gibi sadece gün içeren metin yerel gün olarak okunur (new Date() bunu UTC sayar)
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [year, month, day] = value.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  }
   if (typeof value === 'string' || typeof value === 'number') {
     const date = new Date(value);
     return Number.isNaN(date.getTime()) ? null : date;

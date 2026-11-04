@@ -61,6 +61,45 @@ describe('buildActiveFilters (onFilterChange payload kuralı)', () => {
   });
 });
 
+describe('tarih filtresi payload biçimi (DevExtreme ile aynı)', () => {
+  const dateColumns = normalizeColumns(
+    [
+      { dataField: 'day', caption: 'Gün', dataType: 'date' },
+      { dataField: 'at', caption: 'Zaman', dataType: 'datetime' },
+    ],
+    [],
+    undefined
+  );
+  const [day, at] = dateColumns;
+
+  it('date: yerel gün "yyyy-MM-dd" olarak gider, UTC ye kaymaz', () => {
+    const [filter] = buildActiveFilters(dateColumns, { [day.id]: { value: new Date(2026, 10, 11) } });
+    expect(filter.filterValue).toBe('2026-11-11');
+  });
+
+  it('date between: iki uç da "yyyy-MM-dd"', () => {
+    const [filter] = buildActiveFilters(dateColumns, {
+      [day.id]: { operator: 'between', value: [new Date(2026, 10, 1), new Date(2026, 10, 30)] },
+    });
+    expect(filter.filterValue).toEqual(['2026-11-01', '2026-11-30']);
+  });
+
+  it('datetime: yerel saatle "yyyy-MM-ddTHH:mm:ss"', () => {
+    const [filter] = buildActiveFilters(dateColumns, { [at.id]: { value: new Date(2026, 10, 11, 14, 30) } });
+    expect(filter.filterValue).toBe('2026-11-11T14:30:00');
+  });
+
+  it('applyFilters ile gelen "yyyy-MM-dd" metni aynen geri gider', () => {
+    const [filter] = buildActiveFilters(dateColumns, { [day.id]: { value: '2026-11-11' } });
+    expect(filter.filterValue).toBe('2026-11-11');
+  });
+
+  it('basit modda "yyyy-MM-dd" filtresi o günün kayıtlarını bulur', () => {
+    const rows = [{ day: '2026-11-11T09:00:00' }, { day: '2026-11-12T09:00:00' }];
+    expect(applyLocalFilters(rows, dateColumns, { [day.id]: { value: '2026-11-11' } })).toEqual([rows[0]]);
+  });
+});
+
 describe('operatör yardımcıları', () => {
   it('alternatif isimleri DevExtreme isimlerine çevirir', () => {
     expect(normalizeOperation('startWith')).toBe('startswith');

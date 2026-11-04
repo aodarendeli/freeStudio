@@ -28,6 +28,11 @@ describe('yardımcılar', () => {
     expect(parseNumber('abc')).toBeNull();
   });
 
+  it('toDate "yyyy-MM-dd" metnini yerel gün başlangıcı olarak okur', () => {
+    const date = toDate('2026-11-11')!;
+    expect([date.getFullYear(), date.getMonth(), date.getDate(), date.getHours()]).toEqual([2026, 10, 11, 0]);
+  });
+
   it('toDate geçersiz değerde null döner', () => {
     expect(toDate('2024-01-02')?.getFullYear()).toBe(2024);
     expect(toDate('x')).toBeNull();

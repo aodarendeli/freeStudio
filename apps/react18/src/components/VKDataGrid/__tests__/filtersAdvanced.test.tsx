@@ -68,7 +68,7 @@ describe('Filtre satırı: tarih', () => {
     window.matchMedia = originalMatchMedia;
   });
 
-  it('takvimden gün seçilince o günün başlangıcı Date olarak gider', async () => {
+  it('takvimden gün seçilince DevExtreme gibi "yyyy-MM-dd" metni gider (saat dilimi kaymaz)', async () => {
     const user = userEvent.setup();
     const onRequest = vi.fn();
     render(
@@ -86,9 +86,9 @@ describe('Filtre satırı: tarih', () => {
     await waitFor(() => expect(onRequest).toHaveBeenCalled());
     const [filter] = lastCall(onRequest).filter;
     expect(filter).toMatchObject({ dataField: 'createdAt', dataType: 'date', filterOperator: 'contains' });
-    expect(filter.filterValue).toBeInstanceOf(Date);
-    expect((filter.filterValue as Date).getDate()).toBe(15);
-    expect((filter.filterValue as Date).getHours()).toBe(0);
+    const today = new Date();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    expect(filter.filterValue).toBe(`${today.getFullYear()}-${month}-15`);
   });
 });
 

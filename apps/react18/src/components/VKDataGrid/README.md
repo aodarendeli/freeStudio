@@ -69,6 +69,7 @@ Testler: `pnpm --filter react18 test`
 5. Operatör seçilmediyse: `number` / `boolean` için `=`, diğerleri için `contains`.
 6. Sıralama kaldırılınca `sort: null` gider.
 7. Arama ve metin filtresi 400 ms beklenip tek istek olarak gönderilir.
+8. Tarih filtresi yerel saatle metin olarak gider: `date` → `"2026-11-11"`, `datetime` → `"2026-11-11T14:30:00"` (DevExtreme ile aynı; UTC'ye çevrilmez).
 
 ## Eskisinden farklı olanlar
 
