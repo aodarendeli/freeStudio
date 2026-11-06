@@ -42,6 +42,7 @@ import { useRowClickSelection } from './hooks/useRowClickSelection';
 import { buildColumnPinning, useColumnLayout } from './hooks/useColumnLayout';
 import { useGridRowDragging } from './hooks/useGridRowDragging';
 import { useGridExport } from './hooks/useGridExport';
+import { useExternalUiText } from './i18n/useExternalUiText';
 import { GridToolbar } from './parts/GridToolbar';
 import { GridHeader } from './parts/GridHeader';
 import { GridBody } from './parts/GridBody';
@@ -76,7 +77,7 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
     allowColumnReordering = true,
     allowColumnResizing = true,
     dataSource = [],
-    noDataText = 'Veri Bulunamadı',
+    noDataText,
     selectedRowKeys = [],
     exportOptions,
     scrollingOption,
@@ -116,6 +117,10 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
     exportDataAllMethod,
     isSelected = false,
   } = props;
+
+  // Metinler: prop verilmezse dil dosyasından (eski DataGrid'deki useExternalUiText kullanımı)
+  const resolvedNoDataText = useExternalUiText('dataGrid.noDataText');
+  const resolvedSelectAtLeastOneRow = useExternalUiText('dataGrid.selectAtLeastOneRow');
 
   const options = useGridOptions({
     exportOptions,
@@ -314,6 +319,7 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
     getFilters: gridState.getFilters,
     totalCount,
     isSelected,
+    selectAtLeastOneRowText: resolvedSelectAtLeastOneRow,
     onExporting,
     exportDataAllMethod,
   });
@@ -347,7 +353,7 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
     showColumnLines,
     rowAlternationEnabled,
     isHeaderBold,
-    noDataText,
+    noDataText: noDataText ?? resolvedNoDataText,
     filterRowVisible: options.filterRowConfig.visible !== false,
     showAllText: options.filterRowConfig.showAllText,
     resetOperationText: resetOperationText ?? 'Sıfırla',

@@ -6,6 +6,8 @@ import Box from '@mui/material/Box';
 import Pagination from '@mui/material/Pagination';
 import PaginationItem from '@mui/material/PaginationItem';
 import Typography from '@mui/material/Typography';
+import { useExternalUiText } from '../i18n/useExternalUiText';
+import { formatText } from '../utils';
 
 /** Sayfa ve sayfa boyutu butonları aynı görünür: yuvarlak, seçili olan primary zemin + beyaz yazı */
 const roundItemSx = { fontSize: '0.8125rem', fontWeight: 500 } as const;
@@ -35,6 +37,7 @@ export const GridPager = ({
   onPageChange,
   onPageSizeChange,
 }: GridPagerProps) => {
+  const resolvedPageInfo = useExternalUiText('dataGrid.pageInfo');
   const pageCount = Math.max(1, Math.ceil(totalCount / Math.max(pageSize, 1)));
   const isCompact = displayMode === 'compact';
   const sizes = allowedPageSizes.includes(pageSize)
@@ -73,7 +76,7 @@ export const GridPager = ({
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
         {showInfo && (
           <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8125rem' }}>
-            {`Sayfa ${pageIndex + 1}/${pageCount} (${totalCount} öğeler)`}
+            {formatText(resolvedPageInfo, pageIndex + 1, pageCount, totalCount)}
           </Typography>
         )}
         <Pagination

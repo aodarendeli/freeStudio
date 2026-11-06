@@ -79,7 +79,8 @@ export const useGridOptions = ({
   const filterRowConfig = useMemo(() => ({ visible: true, ...filterRow }), [filterRow]);
 
   const columnChooserConfig = useMemo(
-    () => columnChooserOption ?? { enabled: true, allowSearch: true, title: 'Sütun Seçici' },
+    // title verilmezse araç çubuğu dil dosyasındaki `dataGrid.columnChooserTitle` metnini kullanır
+    () => columnChooserOption ?? { enabled: true, allowSearch: true },
     [columnChooserOption]
   );
 

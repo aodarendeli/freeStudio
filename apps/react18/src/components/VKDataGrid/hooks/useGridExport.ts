@@ -18,6 +18,7 @@ type UseGridExportArgs = {
   getFilters: () => FiltersChangesTypes;
   totalCount: number;
   isSelected: boolean;
+  selectAtLeastOneRowText: string;
   onExporting?: VKDataGridProps['onExporting'];
   exportDataAllMethod?: VKDataGridProps['exportDataAllMethod'];
 };
@@ -30,6 +31,7 @@ export const useGridExport = ({
   getFilters,
   totalCount,
   isSelected,
+  selectAtLeastOneRowText,
   onExporting,
   exportDataAllMethod,
 }: UseGridExportArgs) => {
@@ -69,11 +71,11 @@ export const useGridExport = ({
   /** Sayfalar arası seçili tüm satırlar; `isSelected` iken seçim yoksa uyarı */
   const exportSelected = useCallback(() => {
     if (!selectedRows.length && isSelected) {
-      setNotification({ message: 'Lütfen önce en az 1 satır seçin.', severity: 'warning' });
+      setNotification({ message: selectAtLeastOneRowText, severity: 'warning' });
       return;
     }
     runExport(selectedRows, true);
-  }, [selectedRows, isSelected, runExport]);
+  }, [selectedRows, isSelected, selectAtLeastOneRowText, runExport]);
 
   /**
    * Grid veri çekmez: projenin `exportDataAllMethod`'u güncel filtrelerle çağrılır.

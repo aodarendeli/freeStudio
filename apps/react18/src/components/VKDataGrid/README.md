@@ -88,6 +88,19 @@ Kullanan projelerde fark edilebilecek bilinçli değişiklikler:
 
 Düzeltilen hatalar: header filter ve sıralama menüsü içindeki tıklamaların sütunu yeniden sıralaması.
 
+## Dil metinleri
+
+Metinler eski DataGrid'deki gibi `useExternalUiText("dataGrid.xxx")` ile okunur. İçerik `i18n/externalUiResources.ts`
+(tr / en) dosyasında. Prop verilirse (`noDataText`, `columnChooserOption.title`) prop kazanır.
+
+`i18n/useExternalUiText.ts` bu repoda `@vakif/ui-language-adaptor` olmadığı için aynı imzalı bir yedek uygulamadır.
+Pakette bu dosyanın içeriği şununla değiştirilir:
+
+```ts
+export { useExternalUiText } from '@vakif/ui-language-adaptor';
+export type { LocaleResources } from '@vakif/ui-language-adaptor';
+```
+
 ## Şu an kapalı olan: header filter
 
 `headerFilter` prop'u tipte duruyor (projeler derlenmeye devam eder) ama başlıktaki değer filtresi ikonu

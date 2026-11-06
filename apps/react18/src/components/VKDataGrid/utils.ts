@@ -30,6 +30,10 @@ export const getByPath = (obj: any, path?: string) => {
   return path.split('.').reduce((acc, part) => (acc == null ? undefined : acc[part]), obj);
 };
 
+/** "Sayfa {0}/{1}" gibi kalıplardaki yer tutucuları doldurur */
+export const formatText = (template: string, ...args: unknown[]) =>
+  template.replace(/\{(\d+)\}/g, (match, index) => (index < args.length ? String(args[Number(index)]) : match));
+
 export const isNil = (value: unknown): value is null | undefined =>
   value === null || value === undefined;
 

@@ -18,6 +18,7 @@ import type { GridColumn } from '../columns';
 import type { GridTable } from '../table';
 import { ColumnChooser } from './ColumnChooser';
 import { DebouncedTextField } from './DebouncedTextField';
+import { useExternalUiText } from '../i18n/useExternalUiText';
 
 type GridToolbarProps = {
   table: GridTable;
@@ -78,6 +79,13 @@ export const GridToolbar = (props: GridToolbarProps) => {
     onExportSelected,
   } = props;
 
+  const resolvedPrintHint = useExternalUiText('dataGrid.printHint');
+  const resolvedExportAllHint = useExternalUiText('dataGrid.exportAllHint');
+  const resolvedExportSelectedHint = useExternalUiText('dataGrid.exportSelectedHint');
+  const resolvedSearchPlaceholder = useExternalUiText('dataGrid.searchPlaceholder');
+  const resolvedColumnChooserTitle = useExternalUiText('dataGrid.columnChooserTitle');
+  const columnChooserTitle = columnChooser.title ?? resolvedColumnChooserTitle;
+
   const hasItems =
     showExportButton ||
     columnChooser.enabled ||
@@ -115,7 +123,7 @@ export const GridToolbar = (props: GridToolbarProps) => {
         {searchVisible && (
           <DebouncedTextField
             size="small"
-            placeholder="Ara..."
+            placeholder={resolvedSearchPlaceholder}
             value={searchText}
             onDebouncedChange={onSearch}
             sx={{ flex: { xs: '1 1 100%', sm: '0 1 280px' } }}
@@ -141,7 +149,7 @@ export const GridToolbar = (props: GridToolbarProps) => {
           {columnChooser.enabled && (
             <>
               <ToolbarButton
-                title={columnChooser.title ?? 'Sütun Seçici'}
+                title={columnChooserTitle}
                 onClick={(event) => setChooserAnchor(event.currentTarget)}
               >
                 <ViewColumnOutlinedIcon fontSize="small" />
@@ -150,7 +158,7 @@ export const GridToolbar = (props: GridToolbarProps) => {
                 <ColumnChooser
                   anchorEl={chooserAnchor}
                   onClose={() => setChooserAnchor(null)}
-                  title={columnChooser.title ?? 'Sütun Seçici'}
+                  title={columnChooserTitle}
                   allowSearch={columnChooser.allowSearch ?? false}
                   columns={columns}
                   table={table}
@@ -159,13 +167,13 @@ export const GridToolbar = (props: GridToolbarProps) => {
             </>
           )}
           {showPrintButton && (
-            <ToolbarButton title="Yazdır" onClick={() => onPrint?.()}>
+            <ToolbarButton title={resolvedPrintHint} onClick={() => onPrint?.()}>
               <PrintOutlinedIcon fontSize="small" />
             </ToolbarButton>
           )}
           {showExportAllButton && (
             <ToolbarButton
-              title={isExportingAll ? 'Dışa aktarılıyor...' : 'Tüm Veriyi Dışa Aktar'}
+              title={isExportingAll ? 'Dışa aktarılıyor...' : resolvedExportAllHint}
               onClick={() => onExportAll?.()}
               disabled={isExportingAll}
             >
@@ -173,7 +181,7 @@ export const GridToolbar = (props: GridToolbarProps) => {
             </ToolbarButton>
           )}
           {showExportSelectedButton && (
-            <ToolbarButton title="Seçili Satırları Dışa Aktar" onClick={onExportSelected}>
+            <ToolbarButton title={resolvedExportSelectedHint} onClick={onExportSelected}>
               <LibraryAddCheckOutlinedIcon fontSize="small" />
             </ToolbarButton>
           )}

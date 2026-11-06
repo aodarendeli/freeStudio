@@ -14,6 +14,7 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import type { GridColumn } from '../columns';
 import type { GridTable } from '../table';
+import { useExternalUiText } from '../i18n/useExternalUiText';
 
 type ColumnChooserProps = {
   anchorEl: HTMLElement | null;
@@ -27,6 +28,7 @@ type ColumnChooserProps = {
 /** DevExtreme `ColumnChooser mode="select"`: dışına tıklayınca kapanır */
 export const ColumnChooser = ({ anchorEl, onClose, title, allowSearch, columns, table }: ColumnChooserProps) => {
   const [search, setSearch] = useState('');
+  const searchPlaceholder = useExternalUiText('dataGrid.searchPlaceholder');
   const visibility = table.state.columnVisibility as Record<string, boolean>;
 
   const items = useMemo(() => {
@@ -51,7 +53,7 @@ export const ColumnChooser = ({ anchorEl, onClose, title, allowSearch, columns, 
         {allowSearch && (
           <TextField
             size="small"
-            placeholder="Ara..."
+            placeholder={searchPlaceholder}
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             autoFocus
