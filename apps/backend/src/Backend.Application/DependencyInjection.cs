@@ -1,3 +1,4 @@
+using Backend.Application.Articles;
 using Backend.Application.Categories;
 using Backend.Application.Email;
 using Backend.Application.Menu;
@@ -17,6 +18,7 @@ public static class DependencyInjection
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<IMenuItemService, MenuItemService>();
         services.AddScoped<ISeoMetadataService, SeoMetadataService>();
+        services.AddScoped<IArticleService, ArticleService>();
 
         services.AddValidatorsFromAssemblyContaining<CreateCategoryValidator>();
 

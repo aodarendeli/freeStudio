@@ -11,7 +11,7 @@ public class AuthenticationTests(WebApplicationFactory<Program> factory) : IClas
     {
         var client = factory.CreateClient();
 
-        var response = await client.PostAsJsonAsync("/api/categories", new { name = "Electronics" });
+        var response = await client.PostAsJsonAsync("/api/categories/create", new { name = "Electronics" });
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
@@ -36,7 +36,7 @@ public class AuthenticationTests(WebApplicationFactory<Program> factory) : IClas
     {
         var client = factory.CreateClient();
 
-        var response = await client.PostAsJsonAsync("/api/products", new { name = "Phone", price = 10, categoryId = "x" });
+        var response = await client.PostAsJsonAsync("/api/products/create", new { name = "Phone", price = 10, categoryId = "x" });
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
@@ -46,7 +46,7 @@ public class AuthenticationTests(WebApplicationFactory<Program> factory) : IClas
     {
         var client = factory.CreateClient();
 
-        var response = await client.PutAsJsonAsync("/api/categories/some-id", new { name = "Electronics" });
+        var response = await client.PutAsJsonAsync("/api/categories/update/some-id", new { name = "Electronics" });
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
@@ -56,7 +56,7 @@ public class AuthenticationTests(WebApplicationFactory<Program> factory) : IClas
     {
         var client = factory.CreateClient();
 
-        var response = await client.DeleteAsync("/api/categories/some-id");
+        var response = await client.DeleteAsync("/api/categories/delete/some-id");
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
@@ -66,7 +66,7 @@ public class AuthenticationTests(WebApplicationFactory<Program> factory) : IClas
     {
         var client = factory.CreateClient();
 
-        var response = await client.PutAsJsonAsync("/api/products/some-id", new { name = "Phone", price = 10, categoryId = "x" });
+        var response = await client.PutAsJsonAsync("/api/products/update/some-id", new { name = "Phone", price = 10, categoryId = "x" });
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
@@ -76,7 +76,7 @@ public class AuthenticationTests(WebApplicationFactory<Program> factory) : IClas
     {
         var client = factory.CreateClient();
 
-        var response = await client.DeleteAsync("/api/products/some-id");
+        var response = await client.DeleteAsync("/api/products/delete/some-id");
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }

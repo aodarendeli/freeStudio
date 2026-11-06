@@ -29,6 +29,22 @@ public class ProductRepository(AppDbContext db) : IProductRepository
         return (items, total);
     }
 
+    public async Task<(IReadOnlyList<Product> Items, int Total)> SearchAsync(
+        ProductSearchDto search, CancellationToken ct = default)
+    {
+        var query = ProductSearchQuery.Apply(db.Products.AsNoTracking(), search);
+        var total = await query.CountAsync(ct);
+        var items = await query.Skip((search.Page - 1) * search.Size).Take(search.Size).ToListAsync(ct);
+        return (items, total);
+    }
+
+    public async Task<IReadOnlyList<Product>> ExportAsync(
+        ProductSearchDto search, int maxRows, CancellationToken ct = default)
+    {
+        var query = ProductSearchQuery.Apply(db.Products.AsNoTracking().Include(p => p.Category), search);
+        return await query.Take(maxRows).ToListAsync(ct);
+    }
+
     public Task<Product?> GetByIdAsync(string id, CancellationToken ct = default) =>
         db.Products.FirstOrDefaultAsync(p => p.Id == id, ct);
 
