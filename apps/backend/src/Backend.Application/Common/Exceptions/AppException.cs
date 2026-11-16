@@ -1,31 +1,34 @@
-using Backend.Application.Common.Models;
-
 namespace Backend.Application.Common.Exceptions;
 
-public abstract class AppException : Exception
+/// <summary>Stable error codes, mirrored by the mobile app's <c>ErrorCode</c>. Sent as the Problem Details <c>code</c>.</summary>
+public static class ErrorCodes
 {
-    public int StatusCode { get; }
-    public IReadOnlyList<ErrorItem>? Errors { get; }
-
-    protected AppException(string message, int statusCode, IReadOnlyList<ErrorItem>? errors = null)
-        : base(message)
-    {
-        StatusCode = statusCode;
-        Errors = errors;
-    }
+    public const string NotFound = "NotFound";
+    public const string Validation = "Validation";
+    public const string Conflict = "Conflict";
+    public const string Permission = "Permission";
+    public const string Unauthorized = "Unauthorized";
+    public const string Unknown = "Unknown";
 }
 
-public class BadRequestException(string message, IReadOnlyList<ErrorItem>? errors = null)
-    : AppException(message, 400, errors);
+public abstract class AppException(string code, int statusCode, string message) : Exception(message)
+{
+    public string Code { get; } = code;
+    public int StatusCode { get; } = statusCode;
+}
 
-public class ValidationFailedException(IReadOnlyList<ErrorItem> errors)
-    : AppException("Validation failed", 422, errors);
+public sealed class NotFoundAppException(string message = "Not found")
+    : AppException(ErrorCodes.NotFound, 404, message);
 
-public class UnauthorizedAppException(string message = "Unauthorized")
-    : AppException(message, 401);
+public sealed class ForbiddenAppException(string message = "Forbidden")
+    : AppException(ErrorCodes.Permission, 403, message);
 
-public class ForbiddenAppException(string message = "Forbidden")
-    : AppException(message, 403);
+public sealed class UnauthorizedAppException(string message = "Unauthorized")
+    : AppException(ErrorCodes.Unauthorized, 401, message);
 
-public class NotFoundAppException(string message = "Not found")
-    : AppException(message, 404);
+/// <summary>Version mismatch (If-Match) or a concurrent write. The client re-reads and merges.</summary>
+public sealed class ConflictAppException(string message = "The resource was changed by someone else")
+    : AppException(ErrorCodes.Conflict, 409, message);
+
+public sealed class BadRequestAppException(string message)
+    : AppException(ErrorCodes.Validation, 400, message);
