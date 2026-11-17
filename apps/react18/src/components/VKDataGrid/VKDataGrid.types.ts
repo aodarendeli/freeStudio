@@ -88,6 +88,14 @@ type VKDataGridProps = {
 
   onFilterChange?: (filters: FiltersChangesTypes) => void;
 
+  /**
+   * `false`: client mod. `dataSource` verinin tamamıdır; sayfalama, filtre, arama, sıralama,
+   * gruplama ve özet grid içinde yapılır. `totalCount`, `onFilterChange` ve `handlePagingChanged` kullanılmaz.
+   * Verilmezse eski davranış: `onFilterChange` varsa server mod, yoksa basit mod (bkz. README > Modlar).
+   * DevExtreme karşılığı: `remoteOperations`.
+   */
+  remoteOperations?: boolean;
+
   headerFilterData?: any;
 
   columnChooserOption?: ColumnChooserType;
@@ -141,6 +149,7 @@ type VKDataGridProps = {
 
   /**
    * "Tüm Veriyi Dışa Aktar" butonu. Grid veri çekmez; dosyayı projenin backend'i üretir.
+   * Client modda verilmezse filtrelenmiş tüm satırlar grid tarafından Excel'e aktarılır.
    * Grid'in o anki filtre / arama / sıralaması parametre olarak gelir (sayfa bilgisi yok sayılmalı).
    * Promise dönülürse bitene kadar buton yükleniyor durumunda kalır, hata olursa uyarı gösterilir.
    */

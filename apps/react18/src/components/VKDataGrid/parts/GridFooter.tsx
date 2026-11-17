@@ -23,13 +23,13 @@ const getSummaryValue = (column: GridColumn | undefined, index: number, summary:
 
 /** DevExtreme `Summary > TotalItem summaryType="sum"` karşılığı */
 export const GridFooter = ({ summary }: { summary: Summary }) => {
-  const { displayColumns, allColumns, pageData, showColumnLines } = useGridContext();
+  const { displayColumns, allColumns, summaryData, showColumnLines } = useGridContext();
 
   const itemsByColumnId = new Map<string, string[]>();
   summary.options.forEach((option, index) => {
     const column = allColumns.find((c) => c.dataField === option.column || c.name === option.column);
     if (!column) return;
-    const raw = getSummaryValue(column, index, summary, pageData);
+    const raw = getSummaryValue(column, index, summary, summaryData);
     const value = typeof raw === 'number' ? formatValue(raw, column.format, 'number') : String(raw);
     const text = option.text ? `${option.text}: ${value}` : value;
     itemsByColumnId.set(column.id, [...(itemsByColumnId.get(column.id) ?? []), text]);

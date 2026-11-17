@@ -17,6 +17,8 @@ type UseGridExportArgs = {
   getRowKey: (row: any) => unknown;
   getFilters: () => FiltersChangesTypes;
   totalCount: number;
+  /** Client modda filtrelenmiş tüm satırlar: `exportDataAllMethod` yoksa "tümünü aktar" bunları yazar */
+  localExportRows?: any[];
   isSelected: boolean;
   selectAtLeastOneRowText: string;
   onExporting?: VKDataGridProps['onExporting'];
@@ -30,6 +32,7 @@ export const useGridExport = ({
   getRowKey,
   getFilters,
   totalCount,
+  localExportRows,
   isSelected,
   selectAtLeastOneRowText,
   onExporting,
@@ -80,9 +83,13 @@ export const useGridExport = ({
   /**
    * Grid veri çekmez: projenin `exportDataAllMethod`'u güncel filtrelerle çağrılır.
    * Promise dönerse bitene kadar buton kilitli kalır, hata olursa uyarı gösterilir.
+   * Client modda metot verilmezse veri zaten elde olduğu için grid kendisi aktarır.
    */
   const exportAll = useCallback(async () => {
-    if (!exportDataAllMethod) return;
+    if (!exportDataAllMethod) {
+      if (localExportRows) runExport(localExportRows, false);
+      return;
+    }
     const result = exportDataAllMethod(getFilters());
     if (!result || typeof (result as Promise<unknown>).then !== 'function') return;
     setIsExportingAll(true);
@@ -93,7 +100,7 @@ export const useGridExport = ({
     } finally {
       setIsExportingAll(false);
     }
-  }, [exportDataAllMethod, getFilters, notifyError]);
+  }, [exportDataAllMethod, localExportRows, runExport, getFilters, notifyError]);
 
   return {
     runExport,

@@ -60,6 +60,8 @@ export type GridContextValue = {
   grouping?: GroupingTypes;
   highlight: { enabled: boolean; caseSensitive: boolean };
   pageData: any[];
+  /** Özet satırının hesaplandığı satırlar: client modda filtrelenmiş tüm veri, diğer modlarda sayfa */
+  summaryData: any[];
   singleRowRadioSelection: boolean;
   selectedRadioRowKey: unknown;
   /** Mevcut kod: `rowKeyExpr ? data[rowKeyExpr] : data` */

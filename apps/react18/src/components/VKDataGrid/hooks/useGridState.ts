@@ -30,7 +30,23 @@ type LatestOptions = {
   pageSize: number;
 };
 
+/**
+ * - `server`: `onFilterChange` verilmiş; sayfa, filtre, arama, sıralama backend'de.
+ * - `paging`: basit mod; sadece sayfa backend'de (`handlePagingChanged`), filtre / sıralama o sayfada.
+ * - `client`: `remoteOperations={false}`; `dataSource` verinin tamamı, her şey grid içinde.
+ */
+export type GridDataMode = 'server' | 'paging' | 'client';
+
+export const resolveDataMode = (
+  remoteOperations: boolean | undefined,
+  onFilterChange: unknown
+): GridDataMode => {
+  if (remoteOperations === false) return 'client';
+  return typeof onFilterChange === 'function' ? 'server' : 'paging';
+};
+
 type UseGridStateArgs = {
+  mode: GridDataMode;
   onFilterChange?: (options: FiltersChangesTypes) => void;
   handlePagingChanged?: (data: { size: number; page: number }) => void;
   paging?: PagingTypes;
@@ -57,13 +73,15 @@ const toSortPayload = (column: GridColumn | undefined, rule: SortRule | undefine
  * - Operatör değişimi, boş -> boş filtre değeri, yarım `between` aralığı çağrı üretmez.
  */
 export const useGridState = ({
+  mode,
   onFilterChange,
   handlePagingChanged,
   paging,
   columns,
   getVisibleColumns,
 }: UseGridStateArgs) => {
-  const isServerMode = typeof onFilterChange === 'function';
+  const isServerMode = mode === 'server';
+  const isClientMode = mode === 'client';
 
   const [filters, setFilters] = useState<FiltersState>({});
   const [searchText, setSearchText] = useState('');
@@ -83,7 +101,7 @@ export const useGridState = ({
   const callbacksRef = useRef({ onFilterChange, handlePagingChanged, getVisibleColumns, columns });
   callbacksRef.current = { onFilterChange, handlePagingChanged, getVisibleColumns, columns };
 
-  // Basit modda sayfa durumu `paging` prop'undan gelir, prop değişince eşitlenir
+  // Basit / client modda sayfa durumu `paging` prop'undan başlar, prop değişince eşitlenir
   useEffect(() => {
     if (isServerMode) return;
     if (paging?.pageIndex !== undefined) setPageIndex(paging.pageIndex);
@@ -103,6 +121,10 @@ export const useGridState = ({
       if ('sort' in next) latest.sort = next.sort ?? null;
       if (next.pageSize !== undefined) latest.pageSize = next.pageSize;
 
+      if (isClientMode) {
+        setPageIndex(0);
+        return;
+      }
       if (!isServerMode) return;
       if (latest.filters.some((filter) => isHalfRange(filter.filterValue))) return;
 
@@ -115,7 +137,7 @@ export const useGridState = ({
         pageSize: latest.pageSize,
       });
     },
-    [isServerMode]
+    [isServerMode, isClientMode]
   );
 
   const updateColumnFilter = useCallback(
@@ -208,9 +230,10 @@ export const useGridState = ({
         });
         return;
       }
+      if (isClientMode) return;
       callbacksRef.current.handlePagingChanged?.({ size: stateRef.current.pageSize, page: nextPageIndex });
     },
-    [isServerMode]
+    [isServerMode, isClientMode]
   );
 
   const changePageSize = useCallback(
@@ -224,9 +247,10 @@ export const useGridState = ({
       // Artık server mod ile aynı kural: sayfa boyutu değişince 1. sayfaya dönülür.
       setPageIndex(0);
       latestOptionsRef.current.pageSize = nextPageSize;
+      if (isClientMode) return;
       callbacksRef.current.handlePagingChanged?.({ size: nextPageSize, page: 0 });
     },
-    [isServerMode, emitDataChange]
+    [isServerMode, isClientMode, emitDataChange]
   );
 
   const getFilters = useCallback(
@@ -248,8 +272,10 @@ export const useGridState = ({
         resetSearch = true,
         triggerOnFilterChange = false,
       } = options || {};
-      if (isServerMode) setPageIndex(0);
-      stateRef.current.pageIndex = isServerMode ? 0 : stateRef.current.pageIndex;
+      // Basit modda sayfa dışarıdan yönetilir; server ve client modda 1. sayfaya dönülür
+      const resetsPage = isServerMode || isClientMode;
+      if (resetsPage) setPageIndex(0);
+      stateRef.current.pageIndex = resetsPage ? 0 : stateRef.current.pageIndex;
       // Eskisinden farklı (hata düzeltmesi): eski kod `resetFilter ?? clearFilter()` yazıyordu ve
       // varsayılanlar true olduğu için hiçbir şey temizlenmiyordu. Aynısı resetSort / resetSearch için.
       if (resetFilter) {
@@ -272,7 +298,7 @@ export const useGridState = ({
         ...(resetSort && { sort: null }),
         pageSize: stateRef.current.pageSize,
       };
-      if (triggerOnFilterChange) {
+      if (triggerOnFilterChange && !isClientMode) {
         const latest = latestOptionsRef.current;
         callbacksRef.current.onFilterChange?.({
           filter: latest.filters,
@@ -283,7 +309,7 @@ export const useGridState = ({
         });
       }
     },
-    [isServerMode]
+    [isServerMode, isClientMode]
   );
 
   const applyFilters = useCallback(
@@ -314,6 +340,8 @@ export const useGridState = ({
       latestOptionsRef.current = { ...latestOptionsRef.current, filters: nextFilters, sort };
       setPageIndex(0);
       stateRef.current.pageIndex = 0;
+      // Client modda veri zaten elde; `onFilterChange` bir yükleme isteği sayılmaz
+      if (isClientMode) return;
       callbacksRef.current.onFilterChange?.({
         filter: nextFilters,
         searchText: latestOptionsRef.current.searchText,
@@ -322,10 +350,11 @@ export const useGridState = ({
         pageSize: latestOptionsRef.current.pageSize,
       });
     },
-    []
+    [isClientMode]
   );
 
   return {
+    mode,
     isServerMode,
     filters,
     searchText,

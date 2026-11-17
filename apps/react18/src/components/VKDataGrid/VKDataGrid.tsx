@@ -36,7 +36,7 @@ import { GridContext, type GridContextValue } from './context';
 import { applyLocalFilters, applyLocalSearch, applyLocalSort } from './filtering';
 import { buildColumnDefs, gridFeatures } from './table';
 import { resolvePageSizes, useGridOptions } from './hooks/useGridOptions';
-import { useGridState } from './hooks/useGridState';
+import { resolveDataMode, useGridState } from './hooks/useGridState';
 import { useGridSelection } from './hooks/useGridSelection';
 import { useRowClickSelection } from './hooks/useRowClickSelection';
 import { buildColumnPinning, useColumnLayout } from './hooks/useColumnLayout';
@@ -69,6 +69,8 @@ const toColWidth = (width: unknown) =>
  * @example
  * ```tsx
  * <VKDataGrid dataSource={rows} totalCount={total} rowKeyExpr="id" onFilterChange={load} />
+ * // Client mod: tüm veri bir kez verilir, gerisini grid yapar
+ * <VKDataGrid dataSource={allRows} rowKeyExpr="id" remoteOperations={false} />
  * ```
  */
 const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
@@ -108,6 +110,7 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
     headerFilterData,
     resetOperationText = null,
     onFilterChange,
+    remoteOperations,
     sorting,
     actionMenuRender,
     columnChooserOption,
@@ -177,14 +180,28 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
   const getVisibleColumns = useCallback(() => visibleDataColumnsRef.current, []);
 
   // --- Sayfa / filtre / sıralama / arama ---
-  const gridState = useGridState({ onFilterChange, handlePagingChanged, paging, columns: gridColumns, getVisibleColumns });
-  const { isServerMode } = gridState;
+  const mode = resolveDataMode(remoteOperations, onFilterChange);
+  const gridState = useGridState({
+    mode,
+    onFilterChange,
+    handlePagingChanged,
+    paging,
+    columns: gridColumns,
+    getVisibleColumns,
+  });
 
-  /** Basit modda (onFilterChange yok) DevExtreme filtre / arama / sıralamayı sayfadaki veride yapıyordu */
-  const processedData = useMemo(() => {
+  /**
+   * Gösterilecek veri:
+   * - server: gelen sayfa olduğu gibi
+   * - paging: gelen sayfada yerel filtre / arama / sıralama (DevExtreme basit mod davranışı)
+   * - client: tüm veride filtre / arama / sıralama, sonra grid kendisi sayfalar
+   * Gruplama varsa satırlar grup sütunlarına göre dizilir ki aynı grup bir arada kalsın.
+   */
+  const filteredData = useMemo(() => {
     // Sayfa boyutu küçülünce yeni sayfa gelene kadar eski sayfanın fazla satırları görünmesin
-    let rows = actualData.length > gridState.pageSize ? actualData.slice(0, gridState.pageSize) : actualData;
-    if (!isServerMode) {
+    let rows =
+      mode !== 'client' && actualData.length > gridState.pageSize ? actualData.slice(0, gridState.pageSize) : actualData;
+    if (mode !== 'server') {
       rows = applyLocalFilters(rows, visibleDataColumns, gridState.filters);
       rows = applyLocalSearch(rows, visibleDataColumns, gridState.searchText);
       rows = applyLocalSort(rows, columnsById, gridState.sorting);
@@ -197,7 +214,7 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
   }, [
     actualData,
     gridState.pageSize,
-    isServerMode,
+    mode,
     visibleDataColumns,
     gridState.filters,
     gridState.searchText,
@@ -205,6 +222,17 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
     columnsById,
     groupingState,
   ]);
+
+  // Client modda toplam satır sayısı filtrelenmiş veriden gelir; veri azalırsa sayfa son sayfaya çekilir
+  const effectiveTotalCount = mode === 'client' ? filteredData.length : totalCount;
+  const pageCount = Math.max(1, Math.ceil(effectiveTotalCount / Math.max(gridState.pageSize, 1)));
+  const effectivePageIndex = mode === 'client' ? Math.min(gridState.pageIndex, pageCount - 1) : gridState.pageIndex;
+
+  const processedData = useMemo(() => {
+    if (mode !== 'client') return filteredData;
+    const start = effectivePageIndex * gridState.pageSize;
+    return filteredData.slice(start, start + gridState.pageSize);
+  }, [mode, filteredData, effectivePageIndex, gridState.pageSize]);
 
   // --- Seçim ---
   const gridSelection = useGridSelection({
@@ -317,7 +345,8 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
     selectedRows: gridSelection.internalSelectedData,
     getRowKey: rowClick.getRadioKey,
     getFilters: gridState.getFilters,
-    totalCount,
+    totalCount: effectiveTotalCount,
+    localExportRows: mode === 'client' ? filteredData : undefined,
     isSelected,
     selectAtLeastOneRowText: resolvedSelectAtLeastOneRow,
     onExporting,
@@ -368,6 +397,7 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
       caseSensitive: options.searchConfig.highlightCaseSensitive ?? false,
     },
     pageData: processedData,
+    summaryData: mode === 'client' ? filteredData : processedData,
     singleRowRadioSelection,
     selectedRadioRowKey: rowClick.selectedRadioRowKey,
     getRadioKey: rowClick.getRadioKey,
@@ -406,7 +436,8 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
             onSearch={gridState.changeSearch}
             columnChooser={options.columnChooserConfig}
             showExportButton={!!options.exportConfig.enabled}
-            onExport={() => exporting.runExport(processedData, false)}
+            // Client modda tüm filtrelenmiş veri aktarılır (DevExtreme client mod davranışı)
+            onExport={() => exporting.runExport(mode === 'client' ? filteredData : processedData, false)}
             showPrintButton={isPrintButtonVisible}
             onPrint={handlePrint}
             showExportAllButton={isExportAllButtonVisible}
@@ -436,9 +467,9 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
           </TableContainer>
           {pagerConfig.visible !== false && (
             <GridPager
-              pageIndex={gridState.pageIndex}
+              pageIndex={effectivePageIndex}
               pageSize={gridState.pageSize}
-              totalCount={totalCount}
+              totalCount={effectiveTotalCount}
               allowedPageSizes={pageSizes}
               showPageSizeSelector={pagerConfig.showPageSizeSelector ?? true}
               showInfo={pagerConfig.showInfo ?? true}

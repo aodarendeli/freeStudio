@@ -36,6 +36,7 @@ Testler: `pnpm --filter react18 test`
 |---|---|---|
 | `onFilterChange` (server mod) | `hooks/useGridState.ts`, `filtering.ts > buildActiveFilters` | `serverMode.test.tsx` |
 | `handlePagingChanged`, `paging` (basit mod) | `hooks/useGridState.ts`, `filtering.ts > applyLocal*` | `simpleMode.test.tsx` |
+| `remoteOperations={false}` (client mod) | `hooks/useGridState.ts > resolveDataMode`, `VKDataGrid.tsx` | `clientMode.test.tsx` |
 | Ref: `getFilters`, `resetFilters`, `applyFilters` | `hooks/useGridState.ts` | `refApi.test.tsx` |
 | `<FilterRow>`, `filterOperations`, `showAllText`, `resetOperationText` | `parts/GridFilterRow.tsx` | `serverMode`, `filtersAdvanced.test.tsx` |
 | `<HeaderFilter>`, `headerFilterData` | `parts/HeaderFilterMenu.tsx` (**şu an kapalı**, bkz. aşağı) | `filtersAdvanced`, `columns` (atlanıyor) |
@@ -59,6 +60,24 @@ Testler: `pnpm --filter react18 test`
 | `showBorders`, `showRowLines`, `showColumnLines`, `rowAlternationEnabled`, `isHeaderBold`, `height`, `noDataText` | `VKDataGrid.tsx`, `context.ts > getCellSx` | `appearanceAndMisc`, `columns.test.tsx` |
 | `scrollingOption` | `hooks/useGridOptions.ts` (sadece standart; `virtual` uyarı verir) | `appearanceAndMisc.test.tsx` |
 | `isCrud`, `onCreate`, `onUpdate`, `onDelete` | Etkisiz (`@deprecated`). Ekle / düzenle / sil kullanan projede yapılır | — |
+
+## Modlar
+
+| Mod | Nasıl açılır | Sayfalama | Filtre / arama / sıralama / özet |
+|---|---|---|---|
+| **Server** | `onFilterChange` verilir | Backend | Backend (`onFilterChange` payload'u) |
+| **Basit** | `onFilterChange` yok, `handlePagingChanged` + `paging` | Backend | Gelen sayfanın satırlarında, yerel |
+| **Client** | `remoteOperations={false}` | Grid | Verinin tamamında, yerel |
+
+Client modda `dataSource` verinin tamamıdır; `totalCount`, `onFilterChange` ve `handlePagingChanged` kullanılmaz
+(verilseler de çağrılmaz). Sayfa sayısı filtrelenmiş veriden hesaplanır, filtre / arama / sıralama / sayfa boyutu
+değişince 1. sayfaya dönülür, veri azalırsa sayfa son geçerli sayfaya çekilir. Özet ve "Excel'e aktar" filtrelenmiş
+tüm satırları kullanır; "Tümünü dışa aktar" `exportDataAllMethod` verilmezse aynı satırları grid içinde aktarır.
+Birkaç on bin satıra kadar uygundur, daha büyük veride server mod kullanılmalı. Testler: `clientMode.test.tsx`.
+
+```tsx
+<VKDataGrid dataSource={allRows} columns={columns} rowKeyExpr="id" remoteOperations={false} />
+```
 
 ## Server mod kuralları (`onFilterChange`)
 
