@@ -4,6 +4,8 @@ using System.Reflection;
 using System.Text.Json;
 using Backend.Application.GridDemo;
 using Backend.Domain.GridDemo;
+using FluentValidation;
+using FluentValidation.Results;
 using Microsoft.EntityFrameworkCore;
 
 namespace Backend.Infrastructure.GridDemo;
@@ -14,8 +16,8 @@ namespace Backend.Infrastructure.GridDemo;
 /// <item>Aynı filtredeki <c>filterValue</c> ve <c>filterValues</c> VE ile, <c>filterValues</c> kendi içinde VEYA ile bağlanır.</item>
 /// <item>Metin karşılaştırmaları büyük/küçük harf duyarsızdır (ILIKE); %, _ ve \ kaçışlanır.</item>
 /// <item>Tarih: "2026-11-11" ayarlı saat dilimindeki (GridDemo:DefaultTimeZone) tüm günü, "2026-11-11T14:30:00" o dakikayı, "…Z" / "+03:00" o anı ifade eder.</item>
-/// <item>Hata dönülmez: bilinmeyen alan, boş ya da tipe uymayan değer yok sayılır; alana uymayan operatör
-/// <see cref="ProductGridFields.TryResolve"/> ile en yakın karşılığına çevrilir.</item>
+/// <item>Filtre ağacı (<c>filter</c>) katıdır: yapı kuralları <see cref="FilterTreeRules"/> ile önceden doğrulanır,
+/// tipe uymayan değer (sayı, tarih, kategori id) 400 döner.</item>
 /// </list>
 /// </summary>
 internal static class ProductGridQuery
@@ -31,12 +33,9 @@ internal static class ProductGridQuery
 
     public static IQueryable<Product> Filter(IQueryable<Product> query, ProductSearchRequest request, TimeZoneInfo timeZone)
     {
-        foreach (var filter in request.Filter ?? [])
+        if (request.Filter is { } tree && BuildNode(tree, "filter", timeZone) is { } body)
         {
-            if (BuildFilter(filter, timeZone) is { } predicate)
-            {
-                query = query.Where(predicate);
-            }
+            query = query.Where(Expression.Lambda<Func<Product, bool>>(body, P));
         }
 
         // Genel arama: her kelime ürün adında ya da kategori adında geçmeli
@@ -76,37 +75,58 @@ internal static class ProductGridQuery
         return ordered.ThenBy(p => p.Id);
     }
 
-    private static Expression<Func<Product, bool>>? BuildFilter(GridFilter filter, TimeZoneInfo tz)
+    /// <summary>Grup: alt düğümler VE / VEYA ile bağlanır, <c>not</c> ise tersine çevrilir. Boş grup filtre değildir.</summary>
+    private static Expression? BuildNode(FilterNode node, string path, TimeZoneInfo tz)
     {
-        if (!ProductGridFields.TryResolve(filter.DataField, filter.FilterOperator, out var field, out var kind, out var op))
+        if (node.IsGroup)
         {
-            return null;
+            var children = node.Rules!
+                .Select((child, i) => BuildNode(child, $"{path}.rules[{i}]", tz))
+                .OfType<Expression>()
+                .ToList();
+            if (children.Count == 0)
+            {
+                return null;
+            }
+
+            Func<Expression, Expression, BinaryExpression> combine =
+                node.Combinator == "or" ? Expression.OrElse : Expression.AndAlso;
+            var combined = children.Aggregate((a, b) => combine(a, b));
+            return node.Not ? Expression.Not(combined) : combined;
+        }
+
+        if (!ProductGridFields.TryResolveTreeRule(node.Field, node.Operator, out var field, out var kind, out var op)
+            || node.Value is not { } value)
+        {
+            throw InvalidTree(path, $"'{node.Field}' alanı '{node.Operator}' operatörünü desteklemiyor.");
         }
 
         var condition = new Condition(field, kind, Member(field), tz);
 
-        var parts = new List<Expression>();
+        // Tek değer: tipine uymuyorsa (sayı, tarih, kategori id) kural yok sayılmaz, hata döner
+        Expression Single(string singleOp, JsonElement v) =>
+            condition.Build(singleOp, v)
+            ?? throw InvalidTree($"{path}.value", $"'{field}' alanı için geçersiz değer: {v.GetRawText()}");
 
-        if (filter.FilterValues is { Count: > 0 } selected)
+        switch (op)
         {
-            parts.AddIfNotNull(AnyOf(selected.Where(HasValue).Select(v => condition.Build("=", v))));
-        }
+            case "in":
+                return value.EnumerateArray().Select(v => Single("=", v)).Aggregate(Expression.OrElse);
+            case "between":
+                // İki uç da tipe uymalı; ifade yine aynı aralık mantığıyla kurulur
+                foreach (var end in value.EnumerateArray())
+                {
+                    Single("=", end);
+                }
 
-        if (filter.FilterValue is { } value && HasValue(value))
-        {
-            parts.AddIfNotNull(op == "in"
-                ? AnyOf((value.ValueKind == JsonValueKind.Array ? value.EnumerateArray().ToList() : [value])
-                    .Where(HasValue).Select(v => condition.Build("=", v)))
-                : condition.Build(op, value));
+                return condition.Build("between", value)!;
+            default:
+                return Single(op, value);
         }
-
-        return parts.Count == 0
-            ? null
-            : Expression.Lambda<Func<Product, bool>>(parts.Aggregate(Expression.AndAlso), P);
     }
 
-    private static readonly Expression CategoryName =
-        Expression.Property(Expression.Property(P, nameof(Product.Category)), nameof(Category.Name));
+    private static ValidationException InvalidTree(string path, string message) =>
+        new([new ValidationFailure(path, message)]);
 
     private static Expression Member(string field) => field switch
     {
@@ -122,17 +142,11 @@ internal static class ProductGridQuery
         public Expression? Build(string op, JsonElement value) => Kind switch
         {
             GridFieldKind.Text => ReadString(value) is { } text ? Text(op, text) : null,
-            GridFieldKind.Id => ReadGuid(value) is { } id ? Id(op, id) : CategoryNameFallback(op, value),
+            GridFieldKind.Id => ReadGuid(value) is { } id ? Id(op, id) : null,
             GridFieldKind.Number => Number(op, value),
             GridFieldKind.Date => Date(op, value),
             _ => null,
         };
-
-        /// <summary>Kategori sütununa id yerine metin yazılırsa kategori adında aranır.</summary>
-        private Expression? CategoryNameFallback(string op, JsonElement value) =>
-            Field == ProductGridFields.CategoryId && ReadString(value) is { Length: > 0 } text
-                ? (this with { Member = CategoryName }).Text(op == "<>" ? "notcontains" : "contains", text)
-                : null;
 
         private Expression Text(string op, string text)
         {
@@ -262,22 +276,8 @@ internal static class ProductGridQuery
             value is { Second: 0, Millisecond: 0 } ? TimeSpan.FromMinutes(1) : TimeSpan.FromSeconds(1);
     }
 
-    private static Expression? AnyOf(IEnumerable<Expression?> expressions)
-    {
-        var list = expressions.OfType<Expression>().ToList();
-        return list.Count == 0 ? null : list.Aggregate(Expression.OrElse);
-    }
-
     private static Expression? Both(Expression? a, Expression? b) =>
         a is null ? b : b is null ? a : Expression.AndAlso(a, b);
-
-    private static void AddIfNotNull(this List<Expression> list, Expression? item)
-    {
-        if (item is not null)
-        {
-            list.Add(item);
-        }
-    }
 
     /// <summary>Sabit yerine kapanış üzerinden verilir ki EF SQL parametresi üretsin (plan önbelleği, injection yok).</summary>
     private static MemberExpression Param<T>(T value) =>

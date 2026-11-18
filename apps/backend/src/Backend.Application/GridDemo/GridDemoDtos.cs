@@ -29,24 +29,33 @@ public record PagedResult<T>(IReadOnlyList<T> Items, int TotalCount, int Page, i
 
 /// <summary>
 /// VKDataGrid <c>onFilterChange</c> payload'u. Sayfa bilgisi body ile gelir, <c>page</c> 1'den başlar.
+/// <c>filter</c>: grid'in tüm filtreleri (filtre satırı, header filter, gelişmiş filtre) react-querybuilder ağacı olarak.
 /// </summary>
 public record ProductSearchRequest(
     int Page = 1,
     int Size = 10,
-    IReadOnlyList<GridFilter>? Filter = null,
+    FilterNode? Filter = null,
     string? SearchText = null,
     GridSort? Sort = null);
 
 /// <summary>
-/// <c>filterValue</c>: tek değer ya da <c>between</c> için [başlangıç, bitiş] (uçlardan biri null olabilir).
-/// <c>filterValues</c>: header filter'da seçilen değerler (aralarında VEYA).
+/// react-querybuilder biçiminde filtre ağacı düğümü. <c>rules</c> doluysa grup, değilse kuraldır.
+/// <list type="bullet">
+/// <item>Grup: <c>combinator</c> (<c>and</c> / <c>or</c>), <c>not</c>, <c>rules</c>.</item>
+/// <item>Kural: <c>field</c>, <c>operator</c> (RQB adları: =, !=, &lt;, &gt;, &lt;=, &gt;=, contains, doesNotContain,
+/// beginsWith, endsWith, between, in), <c>value</c>: tek değer; <c>between</c> için [başlangıç, bitiş]; <c>in</c> için dizi.</item>
+/// </list>
+/// RQB'nin <c>id</c> / <c>path</c> alanları yok sayılır. Hatalı ağaç yok sayılmaz, 400 döner.
 /// </summary>
-public record GridFilter(
-    string DataField,
-    string? DataType = null,
-    string? FilterOperator = null,
-    JsonElement? FilterValue = null,
-    IReadOnlyList<JsonElement>? FilterValues = null,
-    string? Name = null);
+public record FilterNode(
+    string? Combinator = null,
+    bool Not = false,
+    IReadOnlyList<FilterNode>? Rules = null,
+    string? Field = null,
+    string? Operator = null,
+    JsonElement? Value = null)
+{
+    public bool IsGroup => Rules is not null;
+}
 
 public record GridSort(string DataField, string SortOrder = "asc", string? DataType = null, string? Name = null);

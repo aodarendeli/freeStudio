@@ -8,11 +8,12 @@ namespace Backend.Api.Controllers.GridDemo;
 
 /// <summary>
 /// VKDataGrid server modu. Filtre / arama / sıralama / sayfa body ile gelir (grid'in <c>onFilterChange</c> payload'u).
-/// Desteklenen alanlar ve operatörler:
+/// <c>filter</c> react-querybuilder ağacıdır (VE / VEYA / DEĞİL, iç içe gruplar); hatalı ağaç 400 döner
+/// (bkz. <see cref="FilterNode"/>). Alanlar ve RQB operatörleri:
 /// <list type="bullet">
-/// <item><c>name</c>: contains, notcontains, startswith, endswith, =, &lt;&gt;, in</item>
-/// <item><c>categoryId</c>: =, &lt;&gt;, in</item>
-/// <item><c>price</c>, <c>createdAt</c>: =, &lt;&gt;, &lt;, &gt;, &lt;=, &gt;=, between, in</item>
+/// <item><c>name</c>: contains, doesNotContain, beginsWith, endsWith, =, !=, in</item>
+/// <item><c>categoryId</c>: =, !=, in</item>
+/// <item><c>price</c>, <c>createdAt</c>: =, !=, &lt;, &gt;, &lt;=, &gt;=, between, in</item>
 /// </list>
 /// <c>searchText</c> her kelimeyi ürün adında veya kategori adında arar.
 /// </summary>

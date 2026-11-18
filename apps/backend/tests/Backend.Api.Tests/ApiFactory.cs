@@ -87,6 +87,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseSetting("Keycloak:Realm", "test");
         builder.UseSetting("Keycloak:Audience", "minik-api");
         builder.UseSetting("RateLimiting:PermitsPerMinute", "100000");
+        // Grid demo uçları (GridDemoFilterTreeTests); seed testte migration'dan sonra çalıştırılır
+        builder.UseSetting("GridDemo:Enabled", "true");
 
         builder.ConfigureTestServices(services =>
         {
