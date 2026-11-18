@@ -3,12 +3,15 @@
  * DevExtreme karşılığı: `<Toolbar>` + `<SearchPanel>` + özel butonlar.
  */
 import { useState } from 'react';
+import Badge from '@mui/material/Badge';
 import Box from '@mui/material/Box';
+import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import IconButton from '@mui/material/IconButton';
 import InputAdornment from '@mui/material/InputAdornment';
 import Tooltip from '@mui/material/Tooltip';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
+import FilterAltOutlinedIcon from '@mui/icons-material/FilterAltOutlined';
 import IosShareIcon from '@mui/icons-material/IosShare';
 import LibraryAddCheckOutlinedIcon from '@mui/icons-material/LibraryAddCheckOutlined';
 import PrintOutlinedIcon from '@mui/icons-material/PrintOutlined';
@@ -36,6 +39,8 @@ type GridToolbarProps = {
   isExportingAll: boolean;
   showExportSelectedButton: boolean;
   onExportSelected: () => void;
+  /** Verilirse "Gelişmiş filtre" butonu; filtre uygulanmışsa solda kural sayısıyla kaldırılabilir chip */
+  advancedFilter?: { title: string; ruleCount: number; onOpen: () => void; onClear: () => void };
 };
 
 const ToolbarButton = ({
@@ -77,6 +82,7 @@ export const GridToolbar = (props: GridToolbarProps) => {
     isExportingAll,
     showExportSelectedButton,
     onExportSelected,
+    advancedFilter,
   } = props;
 
   const resolvedPrintHint = useExternalUiText('dataGrid.printHint');
@@ -92,7 +98,8 @@ export const GridToolbar = (props: GridToolbarProps) => {
     searchVisible ||
     showPrintButton ||
     showExportAllButton ||
-    showExportSelectedButton;
+    showExportSelectedButton ||
+    !!advancedFilter;
   if (!hasItems) return null;
 
   return (
@@ -108,6 +115,17 @@ export const GridToolbar = (props: GridToolbarProps) => {
         borderBottom: `1px solid ${theme.palette.divider}`,
       })}
     >
+      {advancedFilter && advancedFilter.ruleCount > 0 && (
+        <Chip
+          size="small"
+          color="primary"
+          variant="outlined"
+          icon={<FilterAltOutlinedIcon />}
+          label={`${advancedFilter.title}: ${advancedFilter.ruleCount} kural`}
+          onClick={advancedFilter.onOpen}
+          onDelete={advancedFilter.onClear}
+        />
+      )}
       <Box
         sx={{
           display: 'flex',
@@ -141,6 +159,13 @@ export const GridToolbar = (props: GridToolbarProps) => {
           />
         )}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+          {advancedFilter && (
+            <ToolbarButton title={advancedFilter.title} onClick={advancedFilter.onOpen}>
+              <Badge color="primary" variant="dot" invisible={advancedFilter.ruleCount === 0}>
+                <FilterAltOutlinedIcon fontSize="small" />
+              </Badge>
+            </ToolbarButton>
+          )}
           {showExportButton && (
             <ToolbarButton title="Excel'e Aktar" onClick={onExport}>
               <FileDownloadOutlinedIcon fontSize="small" />

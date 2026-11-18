@@ -12,8 +12,11 @@ import type {
   SortingTypes,
 } from '../VKDataGrid.types';
 import type { GridColumn } from '../columns';
+import type { FilterGroup } from '../../VKFilterBuilder/VKFilterBuilder.types';
 import {
-  buildActiveFilters,
+  buildRowFilterTree,
+  combineFilterTrees,
+  isColumnFilterActive,
   isFilterValueEmpty,
   isHalfRange,
   normalizeOperation,
@@ -24,7 +27,8 @@ import {
 import { isDeepEqual } from '../utils';
 
 type LatestOptions = {
-  filters: FilterTypes[];
+  /** Filtre satırı + gelişmiş filtre (react-querybuilder biçimi) */
+  filter: FilterGroup;
   searchText: string;
   sort: SortingTypes | null;
   pageSize: number;
@@ -88,16 +92,17 @@ export const useGridState = ({
   const [sorting, setSorting] = useState<SortRule[]>([]);
   const [pageIndex, setPageIndex] = useState(paging?.pageIndex ?? 0);
   const [pageSize, setPageSize] = useState(paging?.pageSize ?? 10);
+  const [advancedFilter, setAdvancedFilter] = useState<FilterGroup | null>(null);
 
   const latestOptionsRef = useRef<LatestOptions>({
-    filters: [],
+    filter: { combinator: 'and', rules: [] },
     searchText: '',
     sort: null,
     pageSize,
   });
   // Render'dan bağımsız güncel değerler (ref API ve olay işleyicileri için)
-  const stateRef = useRef({ filters, searchText, sorting, pageIndex, pageSize });
-  stateRef.current = { filters, searchText, sorting, pageIndex, pageSize };
+  const stateRef = useRef({ filters, searchText, sorting, pageIndex, pageSize, advancedFilter });
+  stateRef.current = { filters, searchText, sorting, pageIndex, pageSize, advancedFilter };
   const callbacksRef = useRef({ onFilterChange, handlePagingChanged, getVisibleColumns, columns });
   callbacksRef.current = { onFilterChange, handlePagingChanged, getVisibleColumns, columns };
 
@@ -111,13 +116,33 @@ export const useGridState = ({
     if (paging?.pageSize !== undefined) setPageSize(paging.pageSize);
   }, [isServerMode, paging?.pageSize]);
 
-  /** Filtre / arama / sıralama / sayfa boyutu değişimi: sayfa 0'a döner ve bildirilir */
+  /** `onFilterChange` / `getFilters` payload'u: son seçenekler + verilen sayfa */
+  const toPayload = useCallback((nextPageIndex: number): FiltersChangesTypes => {
+    const latest = latestOptionsRef.current;
+    return {
+      filter: latest.filter,
+      searchText: latest.searchText,
+      sort: latest.sort,
+      pageIndex: nextPageIndex,
+      pageSize: latest.pageSize,
+    };
+  }, []);
+
+  /** Payload ağacı: gelişmiş filtre VE filtre satırı (sadece görünür sütunlar, düz listeyle aynı kural) */
+  const refreshFilterTree = useCallback((nextFilters: FiltersState) => {
+    latestOptionsRef.current.filter = combineFilterTrees(
+      stateRef.current.advancedFilter,
+      buildRowFilterTree(callbacksRef.current.getVisibleColumns(), nextFilters)
+    );
+  }, []);
+
+  /** Filtre / arama / sıralama / sayfa boyutu / gelişmiş filtre değişimi: sayfa 0'a döner ve bildirilir */
   const emitDataChange = useCallback(
     (next: { filters?: FiltersState; searchText?: string; sort?: SortingTypes | null; pageSize?: number }) => {
       const latest = latestOptionsRef.current;
       const nextFilters = next.filters ?? stateRef.current.filters;
       latest.searchText = next.searchText ?? stateRef.current.searchText;
-      latest.filters = buildActiveFilters(callbacksRef.current.getVisibleColumns(), nextFilters);
+      refreshFilterTree(nextFilters);
       if ('sort' in next) latest.sort = next.sort ?? null;
       if (next.pageSize !== undefined) latest.pageSize = next.pageSize;
 
@@ -126,18 +151,28 @@ export const useGridState = ({
         return;
       }
       if (!isServerMode) return;
-      if (latest.filters.some((filter) => isHalfRange(filter.filterValue))) return;
+      // Görünür bir sütunda yarım `between` aralığı varsa istek atılmaz
+      const hasHalfRange = callbacksRef.current
+        .getVisibleColumns()
+        .some((column) => isColumnFilterActive(nextFilters[column.id]) && isHalfRange(nextFilters[column.id].value));
+      if (hasHalfRange) return;
 
       setPageIndex(0);
-      callbacksRef.current.onFilterChange?.({
-        filter: latest.filters,
-        searchText: latest.searchText,
-        sort: latest.sort,
-        pageIndex: 0,
-        pageSize: latest.pageSize,
-      });
+      callbacksRef.current.onFilterChange?.(toPayload(0));
     },
-    [isServerMode, isClientMode]
+    [isServerMode, isClientMode, toPayload, refreshFilterTree]
+  );
+
+  /** "Gelişmiş filtre" uygulandı / kaldırıldı. Boş ağaç filtre yok demektir */
+  const changeAdvancedFilter = useCallback(
+    (tree: FilterGroup | null) => {
+      const next = tree && tree.rules.length > 0 ? tree : null;
+      if (isDeepEqual(next, stateRef.current.advancedFilter)) return;
+      stateRef.current.advancedFilter = next;
+      setAdvancedFilter(next);
+      emitDataChange({});
+    },
+    [emitDataChange]
   );
 
   const updateColumnFilter = useCallback(
@@ -220,20 +255,13 @@ export const useGridState = ({
     (nextPageIndex: number) => {
       setPageIndex(nextPageIndex);
       if (isServerMode) {
-        const latest = latestOptionsRef.current;
-        callbacksRef.current.onFilterChange?.({
-          filter: latest.filters,
-          searchText: latest.searchText,
-          sort: latest.sort,
-          pageIndex: nextPageIndex,
-          pageSize: latest.pageSize,
-        });
+        callbacksRef.current.onFilterChange?.(toPayload(nextPageIndex));
         return;
       }
       if (isClientMode) return;
       callbacksRef.current.handlePagingChanged?.({ size: stateRef.current.pageSize, page: nextPageIndex });
     },
-    [isServerMode, isClientMode]
+    [isServerMode, isClientMode, toPayload]
   );
 
   const changePageSize = useCallback(
@@ -253,16 +281,7 @@ export const useGridState = ({
     [isServerMode, isClientMode, emitDataChange]
   );
 
-  const getFilters = useCallback(
-    (): FiltersChangesTypes => ({
-      filter: latestOptionsRef.current.filters,
-      searchText: latestOptionsRef.current.searchText,
-      sort: latestOptionsRef.current.sort,
-      pageIndex: stateRef.current.pageIndex,
-      pageSize: latestOptionsRef.current.pageSize,
-    }),
-    []
-  );
+  const getFilters = useCallback((): FiltersChangesTypes => toPayload(stateRef.current.pageIndex), [toPayload]);
 
   const resetFilters = useCallback(
     (options?: ResetFilterOptions) => {
@@ -281,6 +300,9 @@ export const useGridState = ({
       if (resetFilter) {
         stateRef.current.filters = {};
         setFilters({});
+        // Gelişmiş filtre de filtredir, birlikte temizlenir
+        stateRef.current.advancedFilter = null;
+        setAdvancedFilter(null);
       }
       if (resetSort) {
         stateRef.current.sorting = [];
@@ -292,24 +314,17 @@ export const useGridState = ({
       }
       latestOptionsRef.current = {
         ...latestOptionsRef.current,
-        ...(resetFilter && { filters: [] }),
         // Hata düzeltmesi: eski kodda resetSort -> searchText, resetSearch -> sort olarak ters bağlıydı
         ...(resetSearch && { searchText: '' }),
         ...(resetSort && { sort: null }),
         pageSize: stateRef.current.pageSize,
       };
+      refreshFilterTree(stateRef.current.filters);
       if (triggerOnFilterChange && !isClientMode) {
-        const latest = latestOptionsRef.current;
-        callbacksRef.current.onFilterChange?.({
-          filter: latest.filters,
-          searchText: latest.searchText,
-          sort: latest.sort,
-          pageIndex: 0,
-          pageSize: latest.pageSize,
-        });
+        callbacksRef.current.onFilterChange?.(toPayload(0));
       }
     },
-    [isServerMode, isClientMode]
+    [isServerMode, isClientMode, toPayload, refreshFilterTree]
   );
 
   const applyFilters = useCallback(
@@ -337,20 +352,15 @@ export const useGridState = ({
           setSorting(nextSorting);
         }
       }
-      latestOptionsRef.current = { ...latestOptionsRef.current, filters: nextFilters, sort };
+      latestOptionsRef.current = { ...latestOptionsRef.current, sort };
+      refreshFilterTree(updated);
       setPageIndex(0);
       stateRef.current.pageIndex = 0;
       // Client modda veri zaten elde; `onFilterChange` bir yükleme isteği sayılmaz
       if (isClientMode) return;
-      callbacksRef.current.onFilterChange?.({
-        filter: nextFilters,
-        searchText: latestOptionsRef.current.searchText,
-        sort,
-        pageIndex: 0,
-        pageSize: latestOptionsRef.current.pageSize,
-      });
+      callbacksRef.current.onFilterChange?.(toPayload(0));
     },
-    [isClientMode]
+    [isClientMode, toPayload, refreshFilterTree]
   );
 
   return {
@@ -361,6 +371,8 @@ export const useGridState = ({
     sorting,
     pageIndex,
     pageSize,
+    advancedFilter,
+    changeAdvancedFilter,
     changeFilterValue,
     changeFilterOperator,
     resetFilterOperator,

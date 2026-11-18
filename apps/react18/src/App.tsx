@@ -11,6 +11,7 @@ import Typography from '@mui/material/Typography';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import { trTR } from '@mui/material/locale';
 import { ClientModePage } from './demo/pages/ClientModePage';
+import { FilterBuilderPage } from './demo/pages/FilterBuilderPage';
 import { PagingPage } from './demo/pages/PagingPage';
 import { RowDraggingPage } from './demo/pages/RowDraggingPage';
 import { ServerModePage } from './demo/pages/ServerModePage';
@@ -50,6 +51,7 @@ function App() {
           <Tab label="Satır sürükleme" />
           <Tab label="Sadece sayfalama" />
           <Tab label="Client mod" />
+          <Tab label="Dinamik filtre" />
         </Tabs>
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1fr) 320px' }, gap: 2 }}>
           <Box sx={{ minWidth: 0 }}>
@@ -59,6 +61,7 @@ function App() {
               {tab === 2 && <RowDraggingPage log={log} />}
               {tab === 3 && <PagingPage log={log} />}
               {tab === 4 && <ClientModePage log={log} />}
+              {tab === 5 && <FilterBuilderPage log={log} />}
             </ProductCrudProvider>
           </Box>
           <Paper variant="outlined" sx={{ p: 1.5, maxHeight: 680, overflow: 'auto' }}>

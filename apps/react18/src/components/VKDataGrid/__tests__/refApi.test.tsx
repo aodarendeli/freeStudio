@@ -16,7 +16,13 @@ describe('Ref API (VKDataGridRef)', () => {
   it('getFilters son filtre / arama / sıralama / sayfa bilgisini döner', async () => {
     const user = userEvent.setup();
     const { grid, onRequest } = setup();
-    expect(grid().getFilters()).toEqual({ filter: [], searchText: '', sort: null, pageIndex: 0, pageSize: 10 });
+    expect(grid().getFilters()).toEqual({
+      filter: { combinator: 'and', rules: [] },
+      searchText: '',
+      sort: null,
+      pageIndex: 0,
+      pageSize: 10,
+    });
 
     await user.type(screen.getByRole('textbox', { name: 'Ad filtresi' }), 'ürün');
     await waitFor(() => expect(onRequest).toHaveBeenCalled());
@@ -24,7 +30,7 @@ describe('Ref API (VKDataGridRef)', () => {
     await user.click(screen.getByRole('button', { name: 'Sayfa 2' }));
 
     expect(grid().getFilters()).toMatchObject({
-      filter: [expect.objectContaining({ dataField: 'name', filterValue: 'ürün' })],
+      filter: { combinator: 'and', rules: [{ field: 'name', operator: 'contains', value: 'ürün' }] },
       sort: { dataField: 'price', sortOrder: 'asc' },
       pageIndex: 1,
     });
@@ -35,12 +41,17 @@ describe('Ref API (VKDataGridRef)', () => {
     const { grid, onRequest } = setup();
     await user.type(screen.getByRole('textbox', { name: 'Ara' }), 'x');
     await user.type(screen.getByRole('textbox', { name: 'Ad filtresi' }), 'y');
-    await waitFor(() => expect(grid().getFilters().filter).toHaveLength(1));
+    await waitFor(() => expect(grid().getFilters().filter.rules).toHaveLength(1));
     const calls = onRequest.mock.calls.length;
 
     act(() => grid().resetFilters());
     expect(onRequest).toHaveBeenCalledTimes(calls);
-    expect(grid().getFilters()).toMatchObject({ filter: [], searchText: '', sort: null, pageIndex: 0 });
+    expect(grid().getFilters()).toMatchObject({
+      filter: { combinator: 'and', rules: [] },
+      searchText: '',
+      sort: null,
+      pageIndex: 0,
+    });
     expect(screen.getByRole('textbox', { name: 'Ara' })).toHaveValue('');
     expect(screen.getByRole('textbox', { name: 'Ad filtresi' })).toHaveValue('');
   });
@@ -51,7 +62,7 @@ describe('Ref API (VKDataGridRef)', () => {
     await user.click(screen.getByRole('button', { name: 'Sayfa 2' }));
     act(() => grid().resetFilters({ triggerOnFilterChange: true }));
     expect(onRequest).toHaveBeenLastCalledWith(
-      expect.objectContaining({ filter: [], searchText: '', sort: null, pageIndex: 0 })
+      expect.objectContaining({ filter: { combinator: 'and', rules: [] }, searchText: '', sort: null, pageIndex: 0 })
     );
   });
 
@@ -73,7 +84,11 @@ describe('Ref API (VKDataGridRef)', () => {
     act(() => grid().applyFilters(filters, { dataField: 'price', dataType: 'number', sortOrder: 'desc' }));
 
     expect(onRequest).toHaveBeenLastCalledWith(
-      expect.objectContaining({ filter: filters, pageIndex: 0, sort: expect.objectContaining({ sortOrder: 'desc' }) })
+      expect.objectContaining({
+        filter: { combinator: 'and', rules: [{ field: 'name', operator: 'contains', value: 'Ürün 1' }] },
+        pageIndex: 0,
+        sort: expect.objectContaining({ sortOrder: 'desc' }),
+      })
     );
     expect(screen.getByRole('textbox', { name: 'Ad filtresi' })).toHaveValue('Ürün 1');
     expect(within(document.querySelector('thead')!).getByText('Fiyat').closest('th')).toHaveAttribute(

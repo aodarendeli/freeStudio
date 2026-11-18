@@ -14,7 +14,13 @@ import { useCategories, useProductSearch } from '../queries';
 import { EMPTY_ROWS, PageInfoChips, QueryError, toSearchPayload, type DemoProps } from '../shared';
 import { useProductCrud } from '../useProductCrud';
 
-const INITIAL_OPTIONS: FiltersChangesTypes = { filter: [], searchText: '', sort: null, pageIndex: 0, pageSize: 10 };
+const INITIAL_OPTIONS: FiltersChangesTypes = {
+  filter: { combinator: 'and', rules: [] },
+  searchText: '',
+  sort: null,
+  pageIndex: 0,
+  pageSize: 10,
+};
 
 /**
  * Server mod: filtre / arama / sıralama / sayfa değişince `onFilterChange` gelir,
@@ -112,6 +118,7 @@ export const ServerModePage = ({ log }: DemoProps) => {
           log('POST /api/products', toSearchPayload(next));
           setOptions(next);
         }}
+        advancedFilter
         multipleSelection
         rowSelectionChange={(selected) => log('rowSelectionChange', selected.selectedRowKeys)}
         headerFilter

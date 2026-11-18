@@ -13,6 +13,7 @@ export const externalUiResources: LocaleResources = {
       selectAtLeastOneRow: 'Lütfen önce en az 1 satır seçin.',
       pageInfo: 'Sayfa {0}/{1} ({2} öğeler)',
       searchPlaceholder: 'Ara...',
+      advancedFilter: 'Gelişmiş filtre',
     },
   },
   en: {
@@ -25,6 +26,7 @@ export const externalUiResources: LocaleResources = {
       selectAtLeastOneRow: 'Please select at least one row first.',
       pageInfo: 'Page {0}/{1} ({2} items)',
       searchPlaceholder: 'Search...',
+      advancedFilter: 'Advanced filter',
     },
   },
 };

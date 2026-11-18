@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { normalizeColumns } from '../columns';
 import {
+  applyFilterTree,
   applyLocalFilters,
   applyLocalSearch,
   applyLocalSort,
-  buildActiveFilters,
+  buildRowFilterTree,
+  columnsToFilterFields,
+  combineFilterTrees,
   isHalfRange,
   normalizeOperation,
+  type FiltersState,
 } from '../filtering';
 
 const columns = normalizeColumns(
@@ -32,36 +36,10 @@ const rows = [
   { name: 'Top', price: 50, active: true, categoryId: 'c2' },
 ];
 
-describe('buildActiveFilters (onFilterChange payload kuralı)', () => {
-  it('operatör seçilmediyse string için contains, number/boolean için = gönderir', () => {
-    const result = buildActiveFilters(columns, {
-      [id('name')]: { value: 'ka' },
-      [id('price')]: { value: 10 },
-      [id('active')]: { value: true },
-    });
-    expect(result).toEqual([
-      expect.objectContaining({ dataField: 'name', dataType: 'string', filterOperator: 'contains', filterValue: 'ka' }),
-      expect.objectContaining({ dataField: 'price', dataType: 'number', filterOperator: '=', filterValue: 10 }),
-      expect.objectContaining({ dataField: 'active', dataType: 'boolean', filterOperator: '=', filterValue: true }),
-    ]);
-  });
-
-  it('boş değerli filtreleri göndermez, header filter değerlerini filterValues olarak ekler', () => {
-    const result = buildActiveFilters(columns, {
-      [id('name')]: { value: '' },
-      [id('categoryId')]: { values: ['c1'] },
-    });
-    expect(result).toHaveLength(1);
-    expect(result[0]).toMatchObject({ dataField: 'categoryId', filterValues: ['c1'] });
-  });
-
-  it('seçilen operatörü aynen gönderir', () => {
-    const [filter] = buildActiveFilters(columns, { [id('price')]: { operator: '>=', value: 5 } });
-    expect(filter.filterOperator).toBe('>=');
-  });
-});
-
 describe('tarih filtresi payload biçimi (DevExtreme ile aynı)', () => {
+  /** Ağaçtaki tek kuralın değeri */
+  const valueOf = (cols: typeof columns, state: FiltersState) => (buildRowFilterTree(cols, state).rules[0] as { value: unknown }).value;
+
   const dateColumns = normalizeColumns(
     [
       { dataField: 'day', caption: 'Gün', dataType: 'date' },
@@ -73,25 +51,21 @@ describe('tarih filtresi payload biçimi (DevExtreme ile aynı)', () => {
   const [day, at] = dateColumns;
 
   it('date: yerel gün "yyyy-MM-dd" olarak gider, UTC ye kaymaz', () => {
-    const [filter] = buildActiveFilters(dateColumns, { [day.id]: { value: new Date(2026, 10, 11) } });
-    expect(filter.filterValue).toBe('2026-11-11');
+    expect(valueOf(dateColumns, { [day.id]: { value: new Date(2026, 10, 11) } })).toBe('2026-11-11');
   });
 
   it('date between: iki uç da "yyyy-MM-dd"', () => {
-    const [filter] = buildActiveFilters(dateColumns, {
-      [day.id]: { operator: 'between', value: [new Date(2026, 10, 1), new Date(2026, 10, 30)] },
-    });
-    expect(filter.filterValue).toEqual(['2026-11-01', '2026-11-30']);
+    expect(
+      valueOf(dateColumns, { [day.id]: { operator: 'between', value: [new Date(2026, 10, 1), new Date(2026, 10, 30)] } })
+    ).toEqual(['2026-11-01', '2026-11-30']);
   });
 
   it('datetime: yerel saatle "yyyy-MM-ddTHH:mm:ss"', () => {
-    const [filter] = buildActiveFilters(dateColumns, { [at.id]: { value: new Date(2026, 10, 11, 14, 30) } });
-    expect(filter.filterValue).toBe('2026-11-11T14:30:00');
+    expect(valueOf(dateColumns, { [at.id]: { value: new Date(2026, 10, 11, 14, 30) } })).toBe('2026-11-11T14:30:00');
   });
 
   it('applyFilters ile gelen "yyyy-MM-dd" metni aynen geri gider', () => {
-    const [filter] = buildActiveFilters(dateColumns, { [day.id]: { value: '2026-11-11' } });
-    expect(filter.filterValue).toBe('2026-11-11');
+    expect(valueOf(dateColumns, { [day.id]: { value: '2026-11-11' } })).toBe('2026-11-11');
   });
 
   it('basit modda "yyyy-MM-dd" filtresi o günün kayıtlarını bulur', () => {
@@ -138,5 +112,92 @@ describe('basit mod yerel işlemleri', () => {
         { id: id('name'), desc: true },
       ]).map((r) => r.name)
     ).toEqual(['Silgi', 'Kalem', 'Top']);
+  });
+});
+
+describe('filtre ağacı (react-querybuilder biçimi)', () => {
+  it('filtre satırını RQB operatörleriyle tek VE grubuna çevirir; seçilmemiş operatörde anlamlı varsayılan', () => {
+    expect(
+      buildRowFilterTree(columns, {
+        [id('name')]: { operator: 'startswith', value: 'ka' },
+        [id('price')]: { value: 10 },
+        [id('categoryId')]: { value: 'c1' },
+        [id('active')]: { operator: '<>', value: true, values: [false] },
+      })
+    ).toEqual({
+      combinator: 'and',
+      rules: [
+        { field: 'name', operator: 'beginsWith', value: 'ka' },
+        { field: 'price', operator: '=', value: 10 },
+        { field: 'active', operator: 'in', value: [false] },
+        { field: 'active', operator: '!=', value: true },
+        // Düz listede lookup için 'contains' gidiyordu; ağaçta id eşitliği
+        { field: 'categoryId', operator: '=', value: 'c1' },
+      ],
+    });
+  });
+
+  it('boş değer ve yarım between aralığı ağaca girmez', () => {
+    expect(
+      buildRowFilterTree(columns, {
+        [id('name')]: { value: '' },
+        [id('price')]: { operator: 'between', value: [10, null] },
+      }).rules
+    ).toEqual([]);
+  });
+
+  it('gelişmiş filtre ile birleştirir: düz VE grubu açılır, VEYA / DEĞİL alt grup kalır', () => {
+    const row = { combinator: 'and' as const, rules: [{ field: 'price', operator: '>', value: 5 }] };
+    const flat = { combinator: 'and' as const, rules: [{ field: 'name', operator: 'contains', value: 'a' }] };
+    const or = { combinator: 'or' as const, rules: [flat.rules[0], row.rules[0]] };
+
+    expect(combineFilterTrees(flat, row).rules).toEqual([flat.rules[0], row.rules[0]]);
+    expect(combineFilterTrees(or, row)).toEqual({ combinator: 'and', rules: [or, row.rules[0]] });
+    expect(combineFilterTrees({ ...flat, not: true }, row).rules[0]).toEqual({ ...flat, not: true });
+    expect(combineFilterTrees(null, row)).toBe(row);
+    expect(combineFilterTrees(or, { combinator: 'and', rules: [] })).toBe(or);
+  });
+
+  // Client senkronu: filtre satırının yerel sonucu, aynı durumun ağaca çevrilip değerlendirilmesiyle aynı olmalı
+  const rowStates: [string, FiltersState][] = [
+    ['metin içerir', { [id('name')]: { value: 'kal' } }],
+    ['metin ile başlar / eşit değil', { [id('name')]: { operator: 'startswith', value: 'k' }, [id('price')]: { operator: '<>', value: 10 } }],
+    ['sayı aralığı', { [id('price')]: { operator: 'between', value: [10, 40] } }],
+    ['lookup + boolean', { [id('categoryId')]: { value: 'c2' }, [id('active')]: { value: true } }],
+    ['header filter değerleri', { [id('categoryId')]: { values: ['c1'] }, [id('price')]: { operator: '>=', value: 20 } }],
+  ];
+  it.each(rowStates)('filtre satırı ve ağacı aynı satırları verir: %s', (_, state) => {
+    expect(applyFilterTree(rows, columns, buildRowFilterTree(columns, state))).toEqual(applyLocalFilters(rows, columns, state));
+  });
+
+  it('VEYA, DEĞİL ve in ile yerelde değerlendirir', () => {
+    const tree = {
+      combinator: 'or' as const,
+      rules: [
+        { field: 'name', operator: 'endsWith', value: 'gi' },
+        { combinator: 'and' as const, not: true, rules: [{ field: 'categoryId', operator: 'in', value: ['c1'] }] },
+      ],
+    };
+    const expected = rows.filter((r) => r.name.toLowerCase().endsWith('gi') || r.categoryId !== 'c1');
+    expect(applyFilterTree(rows, columns, tree)).toEqual(expected);
+    expect(expected.length).toBeGreaterThan(0);
+    expect(expected.length).toBeLessThan(rows.length);
+  });
+
+  it('gelişmiş filtre alanları: filtrelenebilir sütunlar, lookup seçenekleriyle', () => {
+    expect(columnsToFilterFields(columns)).toEqual([
+      { name: 'name', label: 'Ad', dataType: 'string' },
+      { name: 'price', label: 'Fiyat', dataType: 'number' },
+      { name: 'active', label: 'Aktif', dataType: 'boolean' },
+      {
+        name: 'categoryId',
+        label: 'Kategori',
+        dataType: 'string',
+        options: [
+          { value: 'c1', label: 'Kırtasiye' },
+          { value: 'c2', label: 'Oyuncak' },
+        ],
+      },
+    ]);
   });
 });

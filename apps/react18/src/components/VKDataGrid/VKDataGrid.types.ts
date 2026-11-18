@@ -1,4 +1,5 @@
 import type { JSX, ReactNode } from 'react';
+import type { FilterGroup } from '../VKFilterBuilder/VKFilterBuilder.types';
 
 /**
  * DevExtreme `ExportingEvent` yerine geçen yerel tip.
@@ -96,6 +97,13 @@ type VKDataGridProps = {
    */
   remoteOperations?: boolean;
 
+  /**
+   * Araç çubuğunda "Gelişmiş filtre" butonu: VE / VEYA / DEĞİL ve iç içe gruplarla filtre (VKFilterBuilder).
+   * Alanlar filtrelenebilir sütunlardan gelir. Filtre satırıyla VE ile birleşir ve payload'daki `filter` ağacına girer;
+   * client / basit modda yerelde uygulanır. Default = false
+   */
+  advancedFilter?: boolean;
+
   headerFilterData?: any;
 
   columnChooserOption?: ColumnChooserType;
@@ -162,6 +170,7 @@ type VKDataGridProps = {
 type VKDataGridRef = {
   resetFilters: () => void;
   getFilters: () => FiltersChangesTypes;
+  /** Filtre satırını programatik doldurur (sütun başına operatör / değer) ve istek atar */
   applyFilters: (filters: FilterTypes[]) => void;
 };
 
@@ -183,7 +192,11 @@ type VKGridSorting = {
 };
 
 type FiltersChangesTypes = {
-  filter: FilterTypes[];
+  /**
+   * Grid'in tüm filtreleri (filtre satırı, header filter, gelişmiş filtre) react-querybuilder biçiminde tek ağaç.
+   * Operatörler RQB adlarıyladır. Filtre yokken `{ combinator: 'and', rules: [] }`. Bkz. README > Filtre ağacı.
+   */
+  filter: FilterGroup;
   searchText: string;
   sort: SortingTypes | null;
   pageIndex: number;
@@ -346,4 +359,5 @@ export type {
   SortingTypes,
   Summary,
   SummaryOption,
+  FilterGroup,
 };

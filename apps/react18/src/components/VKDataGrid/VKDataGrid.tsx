@@ -33,7 +33,14 @@ import {
 import type { FilterTypes, ResetFilterOptions, SortingTypes, VKDataGridProps, VKDataGridRef } from './VKDataGrid.types';
 import { normalizeColumns, type GridColumn } from './columns';
 import { GridContext, type GridContextValue } from './context';
-import { applyLocalFilters, applyLocalSearch, applyLocalSort } from './filtering';
+import {
+  applyFilterTree,
+  applyLocalFilters,
+  applyLocalSearch,
+  applyLocalSort,
+  columnsToFilterFields,
+} from './filtering';
+import { countRules } from '../VKFilterBuilder/tree';
 import { buildColumnDefs, gridFeatures } from './table';
 import { resolvePageSizes, useGridOptions } from './hooks/useGridOptions';
 import { resolveDataMode, useGridState } from './hooks/useGridState';
@@ -48,6 +55,7 @@ import { GridHeader } from './parts/GridHeader';
 import { GridBody } from './parts/GridBody';
 import { GridFooter } from './parts/GridFooter';
 import { GridPager } from './parts/GridPager';
+import { AdvancedFilterDialog } from './parts/AdvancedFilterDialog';
 
 const rowIdFromKey = (key: unknown) => (typeof key === 'object' && key !== null ? JSON.stringify(key) : String(key));
 
@@ -111,6 +119,7 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
     resetOperationText = null,
     onFilterChange,
     remoteOperations,
+    advancedFilter: isAdvancedFilterEnabled = false,
     sorting,
     actionMenuRender,
     columnChooserOption,
@@ -124,6 +133,7 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
   // Metinler: prop verilmezse dil dosyasından (eski DataGrid'deki useExternalUiText kullanımı)
   const resolvedNoDataText = useExternalUiText('dataGrid.noDataText');
   const resolvedSelectAtLeastOneRow = useExternalUiText('dataGrid.selectAtLeastOneRow');
+  const resolvedAdvancedFilter = useExternalUiText('dataGrid.advancedFilter');
 
   const options = useGridOptions({
     exportOptions,
@@ -195,6 +205,7 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
    * - server: gelen sayfa olduğu gibi
    * - paging: gelen sayfada yerel filtre / arama / sıralama (DevExtreme basit mod davranışı)
    * - client: tüm veride filtre / arama / sıralama, sonra grid kendisi sayfalar
+   * Gelişmiş filtre yerel modlarda filtre satırıyla aynı karşılaştırma kurallarıyla uygulanır.
    * Gruplama varsa satırlar grup sütunlarına göre dizilir ki aynı grup bir arada kalsın.
    */
   const filteredData = useMemo(() => {
@@ -203,6 +214,7 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
       mode !== 'client' && actualData.length > gridState.pageSize ? actualData.slice(0, gridState.pageSize) : actualData;
     if (mode !== 'server') {
       rows = applyLocalFilters(rows, visibleDataColumns, gridState.filters);
+      rows = applyFilterTree(rows, gridColumns, gridState.advancedFilter);
       rows = applyLocalSearch(rows, visibleDataColumns, gridState.searchText);
       rows = applyLocalSort(rows, columnsById, gridState.sorting);
     }
@@ -216,7 +228,9 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
     gridState.pageSize,
     mode,
     visibleDataColumns,
+    gridColumns,
     gridState.filters,
+    gridState.advancedFilter,
     gridState.searchText,
     gridState.sorting,
     columnsById,
@@ -233,6 +247,10 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
     const start = effectivePageIndex * gridState.pageSize;
     return filteredData.slice(start, start + gridState.pageSize);
   }, [mode, filteredData, effectivePageIndex, gridState.pageSize]);
+
+  // --- Gelişmiş filtre ---
+  const [isAdvancedFilterOpen, setIsAdvancedFilterOpen] = useState(false);
+  const advancedFilterFields = useMemo(() => columnsToFilterFields(gridColumns), [gridColumns]);
 
   // --- Seçim ---
   const gridSelection = useGridSelection({
@@ -445,6 +463,16 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
             isExportingAll={exporting.isExportingAll}
             showExportSelectedButton={!!options.exportConfig.allowExportSelectedData}
             onExportSelected={exporting.exportSelected}
+            advancedFilter={
+              isAdvancedFilterEnabled
+                ? {
+                    title: resolvedAdvancedFilter,
+                    ruleCount: gridState.advancedFilter ? countRules(gridState.advancedFilter) : 0,
+                    onOpen: () => setIsAdvancedFilterOpen(true),
+                    onClear: () => gridState.changeAdvancedFilter(null),
+                  }
+                : undefined
+            }
           />
           <TableContainer
             sx={(theme) => ({
@@ -480,6 +508,17 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
             />
           )}
         </Box>
+
+        {isAdvancedFilterEnabled && (
+          <AdvancedFilterDialog
+            open={isAdvancedFilterOpen}
+            title={resolvedAdvancedFilter}
+            fields={advancedFilterFields}
+            value={gridState.advancedFilter}
+            onApply={gridState.changeAdvancedFilter}
+            onClose={() => setIsAdvancedFilterOpen(false)}
+          />
+        )}
 
         {/* DevExtreme `notify` yerine: 2500 ms uyarı / hata bildirimi */}
         <Snackbar

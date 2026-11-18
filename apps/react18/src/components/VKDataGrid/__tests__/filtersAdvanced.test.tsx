@@ -19,9 +19,8 @@ describe('Filtre satırı: seçim kutuları', () => {
     render(<ServerHarness onRequest={onRequest} />);
     openSelect('Kategori filtresi');
     await user.click(await screen.findByRole('option', { name: 'Oyuncak' }));
-    expect(lastCall(onRequest).filter).toEqual([
-      expect.objectContaining({ dataField: 'categoryId', filterOperator: 'contains', filterValue: 'c2' }),
-    ]);
+    // Eski düz listede lookup için 'contains' gidiyordu; ağaçta id eşitliği
+    expect(lastCall(onRequest).filter.rules).toEqual([{ field: 'categoryId', operator: '=', value: 'c2' }]);
   });
 
   it('basit modda lookup filtresi id ile eşleşir; "(Tümü)" filtreyi kaldırır', async () => {
@@ -49,9 +48,7 @@ describe('Filtre satırı: seçim kutuları', () => {
     const listbox = await screen.findByRole('listbox');
     expect(within(listbox).getByRole('option', { name: 'Hepsi' })).toBeInTheDocument();
     await user.click(within(listbox).getAllByRole('option')[1]);
-    expect(lastCall(onRequest).filter).toEqual([
-      expect.objectContaining({ dataField: 'active', dataType: 'boolean', filterOperator: '=', filterValue: true }),
-    ]);
+    expect(lastCall(onRequest).filter.rules).toEqual([{ field: 'active', operator: '=', value: true }]);
   });
 });
 
@@ -84,11 +81,12 @@ describe('Filtre satırı: tarih', () => {
     await user.click(within(calendar).getByRole('gridcell', { name: '15' }));
 
     await waitFor(() => expect(onRequest).toHaveBeenCalled());
-    const [filter] = lastCall(onRequest).filter;
-    expect(filter).toMatchObject({ dataField: 'createdAt', dataType: 'date', filterOperator: 'contains' });
     const today = new Date();
     const month = String(today.getMonth() + 1).padStart(2, '0');
-    expect(filter.filterValue).toBe(`${today.getFullYear()}-${month}-15`);
+    // Eski düz listede tarih için 'contains' gidiyordu; ağaçta o günün tamamı (=)
+    expect(lastCall(onRequest).filter.rules).toEqual([
+      { field: 'createdAt', operator: '=', value: `${today.getFullYear()}-${month}-15` },
+    ]);
   });
 });
 
@@ -115,11 +113,11 @@ describe('Filtre operatörü menüsü', () => {
     await user.click(screen.getByRole('button', { name: 'Filtre operatörü' }));
     await user.click(await screen.findByRole('menuitem', { name: 'Büyüktür' }));
     await user.type(screen.getByRole('textbox', { name: 'Fiyat filtresi' }), '50');
-    await waitFor(() => expect(lastCall(onRequest)?.filter).toHaveLength(1));
+    await waitFor(() => expect(lastCall(onRequest)?.filter.rules).toHaveLength(1));
 
     await user.click(screen.getByRole('button', { name: 'Filtre operatörü' }));
     await user.click(await screen.findByRole('menuitem', { name: 'Temizle' }));
-    expect(lastCall(onRequest).filter).toEqual([]);
+    expect(lastCall(onRequest).filter).toEqual({ combinator: 'and', rules: [] });
     expect(screen.getByRole('textbox', { name: 'Fiyat filtresi' })).toHaveValue('');
   });
 });
@@ -173,7 +171,7 @@ describe('Header filter', () => {
     render(<ServerHarness headerFilter onRequest={onRequest} />);
     await user.type(screen.getByRole('textbox', { name: 'Ara' }), 'ür');
     await user.type(screen.getByRole('textbox', { name: 'Fiyat filtresi' }), '40');
-    await waitFor(() => expect(lastCall(onRequest).filter).toHaveLength(1));
+    await waitFor(() => expect(lastCall(onRequest).filter.rules).toHaveLength(1));
     await user.click(screen.getByRole('button', { name: 'Kategori değer filtresi' }));
     await user.click(await screen.findByRole('checkbox', { name: 'Oyuncak' }));
     await user.click(screen.getByRole('button', { name: 'Tamam' }));
@@ -181,10 +179,13 @@ describe('Header filter', () => {
       sort: null,
       searchText: 'ür',
       pageIndex: 0,
-      filter: [
-        expect.objectContaining({ dataField: 'price', filterValue: 40 }),
-        expect.objectContaining({ dataField: 'categoryId', filterValues: ['c2'] }),
-      ],
+      filter: {
+        combinator: 'and',
+        rules: [
+          { field: 'price', operator: '=', value: 40 },
+          { field: 'categoryId', operator: 'in', value: ['c2'] },
+        ],
+      },
     });
   });
 });
@@ -281,7 +282,7 @@ describe('Header filter kapalıyken', () => {
     expect(screen.queryByRole('button', { name: /değer filtresi/ })).not.toBeInTheDocument();
   });
 
-  it('applyFilters ile gelen filterValues hâlâ payload içinde gider', async () => {
+  it('applyFilters ile gelen filterValues payload ağacında in kuralı olarak gider', async () => {
     const { createRef } = await import('react');
     const { act } = await import('@testing-library/react');
     const ref = createRef<any>();
@@ -289,6 +290,9 @@ describe('Header filter kapalıyken', () => {
     render(<ServerHarness ref={ref} onRequest={onRequest} />);
     const filters = [{ dataField: 'categoryId', dataType: 'string', filterValues: ['c2'] }];
     act(() => ref.current.applyFilters(filters));
-    expect(lastCall(onRequest).filter).toEqual(filters);
+    expect(lastCall(onRequest).filter).toEqual({
+      combinator: 'and',
+      rules: [{ field: 'categoryId', operator: 'in', value: ['c2'] }],
+    });
   });
 });

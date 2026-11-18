@@ -141,7 +141,7 @@ describe('Sütun bazında filtre / sıralama ayarları', () => {
     expect(onRequest).toHaveBeenLastCalledWith(
       expect.objectContaining({
         pageIndex: 0,
-        filter: [expect.objectContaining({ dataField: 'categoryId', filterValues: ['c2'] })],
+        filter: { combinator: 'and', rules: [{ field: 'categoryId', operator: 'in', value: ['c2'] }] },
       })
     );
   });

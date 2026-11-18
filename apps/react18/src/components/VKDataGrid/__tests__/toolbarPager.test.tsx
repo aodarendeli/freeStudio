@@ -50,7 +50,9 @@ describe('Araç çubuğu', () => {
     await new Promise((r) => setTimeout(r, 450));
     await user.click(screen.getByRole('button', { name: 'Tüm Veriyi Dışa Aktar' }));
 
-    expect(exportAll).toHaveBeenCalledWith(expect.objectContaining({ searchText: 'kalem', filter: [] }));
+    expect(exportAll).toHaveBeenCalledWith(
+      expect.objectContaining({ searchText: 'kalem', filter: { combinator: 'and', rules: [] } })
+    );
     expect(screen.getByRole('button', { name: 'Dışa aktarılıyor...' })).toBeDisabled();
     resolve();
     expect(await screen.findByRole('button', { name: 'Tüm Veriyi Dışa Aktar' })).toBeEnabled();

@@ -1,4 +1,4 @@
-import type { FilterTypes, SortingTypes } from '../components/VKDataGrid/VKDataGrid.types';
+import type { FilterGroup, SortingTypes } from '../components/VKDataGrid/VKDataGrid.types';
 
 export type ProductDto = { id: string; name: string; price: number; categoryId: string; createdAt: string };
 export type CategoryDto = { id: string; name: string; createdAt: string };
@@ -24,7 +24,8 @@ export type PagedResponse<T> = ApiResponse<T[]> & {
 export type ProductSearchPayload = {
   page: number;
   size: number;
-  filter?: FilterTypes[];
+  /** react-querybuilder ağacı (grid'in `onFilterChange` payload'undaki `filter`) */
+  filter?: FilterGroup;
   searchText?: string;
   sort?: SortingTypes | null;
 };

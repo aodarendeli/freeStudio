@@ -20,12 +20,14 @@
     "@mui/icons-material": "~6.5.0",
     "@mui/material": "~6.5.0",
     "@mui/x-date-pickers": "~8.29.5",
+    "@react-querybuilder/material": "~8.27.0",
     "@tanstack/react-query": "^5.105.1",
     "@tanstack/react-table": "~9.3.1",
     "dayjs": "^1.11.23",
     "exceljs": "^4.4.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "react-querybuilder": "~8.27.0"
   },
   "devDependencies": {
     "@babel/core": "^7.29.7",

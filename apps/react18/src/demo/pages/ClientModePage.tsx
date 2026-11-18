@@ -73,6 +73,7 @@ export const ClientModePage = ({ log }: DemoProps) => {
         columns={columns}
         rowKeyExpr="id"
         remoteOperations={false}
+        advancedFilter
         paging={{ pageIndex: 0, pageSize: 10 }}
         allowedPageSizes={[10, 20, 50]}
         multipleSelection

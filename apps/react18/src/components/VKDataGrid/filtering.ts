@@ -1,10 +1,10 @@
 /**
  * Filtre / arama / sıralama kuralları (saf fonksiyonlar).
- * - `buildActiveFilters`: `onFilterChange` payload'undaki `filter` listesi (eski `getCleanFilters`)
- * - `applyLocal*`: basit modda (onFilterChange yok) DevExtreme'in sayfa verisinde yaptığı yerel işlemler
+ * - `buildRowFilterTree` / `combineFilterTrees`: payload'daki `filter` ağacı (react-querybuilder biçimi)
+ * - `applyLocal*`, `applyFilterTree`: basit / client modda yerel işlemler
  * DevExtreme karşılığı: `<FilterRow>`, `filterOperations`, `<SearchPanel>`, `<Sorting>`.
  */
-import type { FilterTypes } from './VKDataGrid.types';
+import type { FilterGroup, FilterNode, FilterRule, VKFilterField } from '../VKFilterBuilder/VKFilterBuilder.types';
 import { getCellValue, getDisplayText, getLookupText, type GridColumn } from './columns';
 import dayjs from 'dayjs';
 import { isNil, toDate } from './utils';
@@ -58,12 +58,6 @@ export const getEffectiveOperation = (column: GridColumn, state?: ColumnFilterSt
   return 'contains';
 };
 
-/** `onFilterChange` payload'undaki operatör: mevcut `getCleanFilters` kuralı birebir */
-const getPayloadOperation = (column: GridColumn, state: ColumnFilterState) => {
-  if (state.operator) return state.operator;
-  return column.dataType === 'boolean' || column.dataType === 'number' ? '=' : 'contains';
-};
-
 export const isFilterValueEmpty = (value: unknown) => isNil(value) || value === '';
 
 /** `between` için iki uçtan biri boşsa yarım aralıktır */
@@ -85,22 +79,6 @@ const serializeFilterValue = (column: GridColumn, value: any): any => {
   if (!date) return value;
   return dayjs(date).format(column.dataType === 'date' ? 'YYYY-MM-DD' : 'YYYY-MM-DDTHH:mm:ss');
 };
-
-/** Görünür sütunlardan aktif filtre listesini üretir (mevcut `getCleanFilters`) */
-export const buildActiveFilters = (visibleColumns: GridColumn[], filters: FiltersState): FilterTypes[] =>
-  visibleColumns
-    .filter((column) => isColumnFilterActive(filters[column.id]))
-    .map((column) => {
-      const state = filters[column.id];
-      return {
-        dataField: column.dataField as string,
-        dataType: column.dataType || 'string',
-        name: state.name ?? column.name,
-        filterOperator: getPayloadOperation(column, state) as FilterTypes['filterOperator'],
-        filterValue: isFilterValueEmpty(state.value) ? undefined : serializeFilterValue(column, state.value),
-        ...(state.values && state.values.length > 0 && { filterValues: state.values }),
-      };
-    });
 
 const startOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
 
@@ -218,3 +196,116 @@ export const applyLocalSort = (rows: any[], columnsById: Map<string, GridColumn>
     return 0;
   });
 };
+
+// --- Filtre ağacı (react-querybuilder biçimi) ---
+
+/** Grid (DevExtreme) operatörü -> react-querybuilder operatörü */
+const GRID_TO_TREE_OPERATOR: Record<string, string> = {
+  '=': '=',
+  '<>': '!=',
+  '<': '<',
+  '>': '>',
+  '<=': '<=',
+  '>=': '>=',
+  contains: 'contains',
+  notcontains: 'doesNotContain',
+  startswith: 'beginsWith',
+  endswith: 'endsWith',
+  between: 'between',
+};
+
+const TREE_TO_GRID_OPERATOR: Record<string, string> = Object.fromEntries(
+  Object.entries(GRID_TO_TREE_OPERATOR).map(([grid, tree]) => [tree, grid])
+);
+
+/**
+ * Filtre satırı + header filter durumu -> tek VE grubu (sadece verilen, yani görünür sütunlar).
+ * Operatör seçilmemişse lookup, tarih, sayı, boolean için `=`; metin için `contains`.
+ * Header filter değerleri `in` kuralı olur. Yarım `between` aralığı ağaca girmez.
+ */
+export const buildRowFilterTree = (visibleColumns: GridColumn[], filters: FiltersState): FilterGroup => ({
+  combinator: 'and',
+  rules: visibleColumns.flatMap((column): FilterRule[] => {
+    const state = filters[column.id];
+    if (!column.dataField || !isColumnFilterActive(state)) return [];
+    const rules: FilterRule[] = [];
+    if (state.values && state.values.length > 0) {
+      rules.push({ field: column.dataField, operator: 'in', value: serializeFilterValue(column, state.values) });
+    }
+    if (!isFilterValueEmpty(state.value) && !isHalfRange(state.value)) {
+      const operation = getEffectiveOperation(column, state);
+      rules.push({
+        field: column.dataField,
+        operator: GRID_TO_TREE_OPERATOR[operation] ?? operation,
+        value: serializeFilterValue(column, state.value),
+      });
+    }
+    return rules;
+  }),
+});
+
+const isGroup = (node: FilterNode): node is FilterGroup => 'rules' in node && Array.isArray(node.rules);
+
+/**
+ * Gelişmiş filtre VE filtre satırı. Gelişmiş filtre düz bir VE grubuysa kuralları aynı gruba açılır,
+ * değilse (VEYA / DEĞİL) alt grup olarak kalır. Boş taraf sonuca girmez.
+ */
+export const combineFilterTrees = (advanced: FilterGroup | null | undefined, row: FilterGroup): FilterGroup => {
+  if (!advanced || advanced.rules.length === 0) return row;
+  if (row.rules.length === 0) return advanced;
+  const advancedRules = advanced.combinator === 'and' && !advanced.not ? advanced.rules : [advanced];
+  return { combinator: 'and', rules: [...advancedRules, ...row.rules] };
+};
+
+/** Ağaçtaki tek kural, filtre satırıyla aynı karşılaştırma kurallarıyla (`matchesOperation`) değerlendirilir */
+const matchesRule = (column: GridColumn, row: any, rule: FilterRule): boolean => {
+  const cellValue = getCellValue(column, row);
+  switch (rule.operator) {
+    case 'null':
+      return isFilterValueEmpty(cellValue);
+    case 'notNull':
+      return !isFilterValueEmpty(cellValue);
+    case 'in':
+      return (Array.isArray(rule.value) ? rule.value : [rule.value]).some((value) =>
+        matchesOperation(column, cellValue, '=', value)
+      );
+    default: {
+      const operation = TREE_TO_GRID_OPERATOR[rule.operator];
+      return operation ? matchesOperation(column, cellValue, operation, rule.value) : true;
+    }
+  }
+};
+
+/** Client / basit modda ağacı yerelde uygular. Grid'de olmayan alan ya da bilinmeyen operatör kısıt sayılmaz */
+export const applyFilterTree = (rows: any[], columns: GridColumn[], tree: FilterGroup | null | undefined) => {
+  if (!tree || tree.rules.length === 0) return rows;
+  const columnsByField = new Map(columns.filter((c) => c.dataField).map((c) => [c.dataField as string, c]));
+
+  const matchesNode = (row: any, node: FilterNode): boolean => {
+    if (isGroup(node)) {
+      if (node.rules.length === 0) return true;
+      const result =
+        node.combinator === 'or'
+          ? node.rules.some((child) => matchesNode(row, child))
+          : node.rules.every((child) => matchesNode(row, child));
+      return node.not ? !result : result;
+    }
+    const column = columnsByField.get(node.field);
+    return column ? matchesRule(column, row, node) : true;
+  };
+
+  return rows.filter((row) => matchesNode(row, tree));
+};
+
+/** Gelişmiş filtre alanları: filtrelenebilir tüm sütunlar (gizliler dahil), lookup seçenekleriyle */
+export const columnsToFilterFields = (columns: GridColumn[]): VKFilterField[] =>
+  columns
+    .filter((column) => column.dataField && column.allowFiltering && column.dataType !== 'object')
+    .map((column) => ({
+      name: column.dataField as string,
+      label: column.caption,
+      dataType: column.dataType as VKFilterField['dataType'],
+      ...(column.lookupOptions && {
+        options: column.lookupOptions.map((option) => ({ value: option.value, label: option.text })),
+      }),
+    }));

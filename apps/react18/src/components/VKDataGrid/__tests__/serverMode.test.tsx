@@ -4,6 +4,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { getDataRows, ServerHarness } from './fixtures';
 
 const lastCall = (fn: ReturnType<typeof vi.fn>) => fn.mock.calls.at(-1)?.[0];
+/** Payload'daki `filter` ağacının kökündeki kurallar */
+const lastRules = (fn: ReturnType<typeof vi.fn>) => lastCall(fn).filter.rules;
 const header = (caption: string) => within(document.querySelector('thead')!).getByText(caption);
 
 describe('Server mod (onFilterChange)', () => {
@@ -26,23 +28,22 @@ describe('Server mod (onFilterChange)', () => {
     expect(onRequest.mock.calls.filter(([o]) => o.searchText === 'kalem')).toHaveLength(1);
   });
 
-  it('metin filtresi contains, sayı filtresi = operatörüyle gider', async () => {
+  it('metin filtresi contains, sayı filtresi = operatörüyle ağaç kuralı olarak gider', async () => {
     const user = userEvent.setup();
     const onRequest = vi.fn();
     render(<ServerHarness onRequest={onRequest} />);
 
     await user.type(screen.getByRole('textbox', { name: 'Ad filtresi' }), 'ürün');
     await waitFor(() =>
-      expect(lastCall(onRequest).filter).toEqual([
-        expect.objectContaining({ dataField: 'name', filterOperator: 'contains', filterValue: 'ürün' }),
-      ])
+      expect(lastCall(onRequest).filter).toEqual({
+        combinator: 'and',
+        rules: [{ field: 'name', operator: 'contains', value: 'ürün' }],
+      })
     );
 
     await user.type(screen.getByRole('textbox', { name: 'Fiyat filtresi' }), '30');
     await waitFor(() =>
-      expect(lastCall(onRequest).filter).toContainEqual(
-        expect.objectContaining({ dataField: 'price', dataType: 'number', filterOperator: '=', filterValue: 30 })
-      )
+      expect(lastRules(onRequest)).toContainEqual({ field: 'price', operator: '=', value: 30 })
     );
     expect(lastCall(onRequest).pageIndex).toBe(0);
   });
@@ -57,7 +58,7 @@ describe('Server mod (onFilterChange)', () => {
     await waitFor(() => expect(onRequest).toHaveBeenCalledTimes(1));
     await user.clear(input);
     await waitFor(() => expect(onRequest).toHaveBeenCalledTimes(2));
-    expect(lastCall(onRequest).filter).toEqual([]);
+    expect(lastCall(onRequest).filter).toEqual({ combinator: 'and', rules: [] });
 
     await user.type(input, ' ');
     await user.clear(input);
@@ -81,7 +82,7 @@ describe('Server mod (onFilterChange)', () => {
 
     await user.type(screen.getByRole('textbox', { name: 'Fiyat filtresi' }), '50');
     await waitFor(() =>
-      expect(lastCall(onRequest).filter).toEqual([expect.objectContaining({ filterOperator: '>', filterValue: 50 })])
+      expect(lastRules(onRequest)).toEqual([{ field: 'price', operator: '>', value: 50 }])
     );
   });
 
@@ -103,9 +104,7 @@ describe('Server mod (onFilterChange)', () => {
 
     await user.type(screen.getByPlaceholderText('Bitiş'), '60');
     await waitFor(() =>
-      expect(lastCall(onRequest).filter).toEqual([
-        expect.objectContaining({ filterOperator: 'between', filterValue: [20, 60] }),
-      ])
+      expect(lastRules(onRequest)).toEqual([{ field: 'price', operator: 'between', value: [20, 60] }])
     );
   });
 

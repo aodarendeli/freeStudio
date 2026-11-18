@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ClientModePage } from '../pages/ClientModePage';
+import { FilterBuilderPage } from '../pages/FilterBuilderPage';
 import { PagingPage } from '../pages/PagingPage';
 import { RowDraggingPage } from '../pages/RowDraggingPage';
 import { ServerModePage } from '../pages/ServerModePage';
@@ -135,6 +136,38 @@ describe('Demo sayfaları (gerçek API akışı, sahte fetch ile)', () => {
     await user.type(screen.getByRole('textbox', { name: 'Ara' }), 'ürün 1');
     await waitFor(() => expect(screen.getByText('Sayfa 1/1 (10 öğeler)')).toBeInTheDocument());
     expect(productListRequests()).toHaveLength(1);
+  });
+
+  it('Dinamik filtre: "Uygula" tamamlanmış kuralları filter ağacı olarak gönderir; VEYA da aynı payload ile gider', async () => {
+    const user = userEvent.setup();
+    renderPage(<FilterBuilderPage log={() => {}} />);
+    expect(await screen.findByText('Ürün 01')).toBeInTheDocument();
+    expect(productListRequests().at(-1)!.body).toEqual({ page: 1, size: 10 });
+
+    // Başlangıç ağacı: "Ad içerir (boş)" uygulanmaz, "Fiyat 100-500 arası" gider
+    await user.click(screen.getByRole('button', { name: 'Uygula' }));
+    await waitFor(() =>
+      expect(productListRequests().at(-1)!.body).toEqual({
+        page: 1,
+        size: 10,
+        filter: { combinator: 'and', rules: [{ field: 'price', operator: 'between', value: [100, 500] }] },
+      })
+    );
+
+    const combinator = document.querySelector('[title="Bağlaç"] [role="combobox"]') as HTMLElement;
+    fireEvent.mouseDown(combinator);
+    fireEvent.click(await screen.findByRole('option', { name: 'VEYA' }));
+    await user.type(document.querySelector('[title="Değer"] input') as HTMLElement, 'kalem');
+    await user.click(screen.getByRole('button', { name: 'Uygula' }));
+    await waitFor(() =>
+      expect(productListRequests().at(-1)!.body.filter).toEqual({
+        combinator: 'or',
+        rules: [
+          { field: 'name', operator: 'contains', value: 'kalem' },
+          { field: 'price', operator: 'between', value: [100, 500] },
+        ],
+      })
+    );
   });
 
   it('Satır sürükleme: ilk 8 ürün, ilk satırın tutamacı pasif', async () => {

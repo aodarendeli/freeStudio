@@ -10,13 +10,13 @@ describe('API istemcisi', () => {
   it('liste isteği POST /api/products; page ve size URL değil body içinde', async () => {
     const fetchMock = vi.fn(async () => jsonResponse({ success: true, data: [], totalCount: 0, page: 2, size: 10, totalPages: 0 }));
     vi.stubGlobal('fetch', fetchMock);
-    await api.listProducts({ page: 2, size: 10, filter: [], searchText: 'a', sort: null });
+    await api.listProducts({ page: 2, size: 10, filter: { combinator: 'and', rules: [] }, searchText: 'a', sort: null });
 
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe('/api/products');
     expect(url).not.toContain('?');
     expect(init.method).toBe('POST');
-    expect(JSON.parse(init.body as string)).toEqual({ page: 2, size: 10, filter: [], searchText: 'a', sort: null });
+    expect(JSON.parse(init.body as string)).toEqual({ page: 2, size: 10, filter: { combinator: 'and', rules: [] }, searchText: 'a', sort: null });
   });
 
   it('create / update / delete doğru adreslere gider', async () => {
@@ -55,10 +55,10 @@ describe('API istemcisi', () => {
       downloaded = this.download;
     });
 
-    await api.exportProducts({ filter: [], searchText: 'kalem', sort: null });
+    await api.exportProducts({ filter: { combinator: 'and', rules: [] }, searchText: 'kalem', sort: null });
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe('/api/products/export');
-    expect(JSON.parse(init.body as string)).toEqual({ filter: [], searchText: 'kalem', sort: null });
+    expect(JSON.parse(init.body as string)).toEqual({ filter: { combinator: 'and', rules: [] }, searchText: 'kalem', sort: null });
     expect(downloaded).toBe('urunler-2026.xlsx');
     click.mockRestore();
   });
