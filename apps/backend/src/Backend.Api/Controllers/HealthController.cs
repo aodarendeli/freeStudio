@@ -10,19 +10,14 @@ namespace Backend.Api.Controllers;
 public class HealthController(HealthCheckService healthCheckService) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> Get()
+    public async Task<IActionResult> Get(CancellationToken ct)
     {
-        var report = await healthCheckService.CheckHealthAsync();
+        var report = await healthCheckService.CheckHealthAsync(ct);
 
         var payload = new
         {
             status = report.Status.ToString(),
-            checks = report.Entries.Select(e => new
-            {
-                name = e.Key,
-                status = e.Value.Status.ToString(),
-                description = e.Value.Description,
-            }),
+            checks = report.Entries.Select(e => new { name = e.Key, status = e.Value.Status.ToString() }),
         };
 
         return report.Status == HealthStatus.Healthy ? Ok(payload) : StatusCode(503, payload);

@@ -1,16 +1,17 @@
-using Backend.Application.Categories;
-using Backend.Application.Email;
-using Backend.Application.Menu;
-using Backend.Application.Products;
-using Backend.Application.Seo;
-using Backend.Infrastructure.Caching;
-using Backend.Infrastructure.Email;
+using Backend.Application.Admin;
+using Backend.Application.Babies;
+using Backend.Application.Common.Abstractions;
+using Backend.Application.GridDemo;
+using Backend.Application.Health;
+using Backend.Application.Me;
+using Backend.Application.Reminders;
+using Backend.Application.Tracking;
+using Backend.Infrastructure.GridDemo;
 using Backend.Infrastructure.Persistence;
 using Backend.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using StackExchange.Redis;
 
 namespace Backend.Infrastructure;
 
@@ -21,18 +22,18 @@ public static class DependencyInjection
         services.AddDbContext<AppDbContext>(options =>
             options.UseNpgsql(configuration.GetConnectionString("Default")));
 
-        services.Configure<RedisOptions>(configuration.GetSection(RedisOptions.SectionName));
-        services.AddSingleton<IConnectionMultiplexer>(_ =>
-            ConnectionMultiplexer.Connect(configuration.GetSection(RedisOptions.SectionName)["ConnectionString"]
-                ?? "localhost:6379"));
+        services.AddScoped<IUnitOfWork, UnitOfWork>();
+        services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IBabyRepository, BabyRepository>();
+        services.AddScoped<ICareEventRepository, CareEventRepository>();
+        services.AddScoped<IActiveSessionRepository, ActiveSessionRepository>();
+        services.AddScoped<ILabTestRepository, LabTestRepository>();
+        services.AddScoped<IReminderSettingsRepository, ReminderSettingsRepository>();
+        services.AddScoped<IAdminStatsReader, AdminStatsReader>();
 
-        services.Configure<SmtpOptions>(configuration.GetSection(SmtpOptions.SectionName));
-        services.AddScoped<IEmailSender, SmtpEmailSender>();
-
-        services.AddScoped<ICategoryRepository, CategoryRepository>();
-        services.AddScoped<IProductRepository, ProductRepository>();
-        services.AddScoped<IMenuItemRepository, MenuItemRepository>();
-        services.AddScoped<ISeoMetadataRepository, SeoMetadataRepository>();
+        // VKDataGrid demo (apps/react18)
+        services.AddScoped<IProductCatalog, ProductCatalog>();
+        services.AddScoped<GridDemoSeeder>();
 
         return services;
     }

@@ -1,0 +1,19 @@
+import react from '@vitejs/plugin-react'
+// import babel from '@rolldown/plugin-babel'
+import { defineConfig } from 'vite'
+
+// https://vite.dev/config/
+export default defineConfig({
+  plugins: [
+    react(),
+    // babel({ presets: [reactCompilerPreset()] })
+  ],
+  
+  server: {
+    port: 3000,
+    // Backend CORS listesine dokunmadan yerel API'ye erişim (Backend.Api http profili)
+    proxy: {
+      '/api': 'http://localhost:5108',
+    },
+  },
+})

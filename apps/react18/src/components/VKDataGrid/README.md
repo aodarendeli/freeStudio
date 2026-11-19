@@ -1,0 +1,168 @@
+# VKDataGrid
+
+TanStack Table v9 + MUI v6 tabanlı veri tablosu. DevExtreme `DataGrid` tabanlı önceki sürümün yerine geçer.
+Props (`VKDataGridProps`) ve ref (`VKDataGridRef`) arayüzü aynıdır; kullanan projelerde kod değişikliği gerekmez.
+Bilerek değiştirilen davranışlar aşağıda [Eskisinden farklı olanlar](#eskisinden-farklı-olanlar) bölümündedir.
+
+```tsx
+<VKDataGrid
+  ref={gridRef}
+  dataSource={rows}
+  totalCount={total}
+  columns={columns}
+  rowKeyExpr="id"
+  onFilterChange={(options) => load(options)} // server mod
+/>
+```
+
+Testler: `pnpm --filter react18 test`
+
+## Klasör yapısı
+
+| Yer | Görev |
+|---|---|
+| `VKDataGrid.tsx` | Ana bileşen: parçaları birbirine bağlar (forwardRef, context, render) |
+| `VKDataGrid.types.ts` | Public tipler (props, ref, filtre / sıralama tipleri) |
+| `columns.ts`, `filtering.ts`, `format.ts`, `utils.ts` | Saf mantık: sütun modeli, filtre kuralları, biçimleme |
+| `table.ts`, `context.ts` | TanStack feature seti, sistem sütunları, ortak context ve stiller |
+| `hooks/` | Durum: seçenekler, sayfa / filtre, seçim, satır tıklama, sütun yerleşimi, sürükleme, dışa aktarma |
+| `parts/` | Görünüm: araç çubuğu, başlık, filtre satırı, gövde, özet, sayfalayıcı, sütun seçici |
+| `export/` | Excel üretimi |
+| `__tests__/` | Testler |
+
+## Özellik → kod → test eşlemesi
+
+| DevExtreme özelliği / prop | Bu grid'de | Test |
+|---|---|---|
+| `onFilterChange` (server mod) | `hooks/useGridState.ts`, `filtering.ts > buildRowFilterTree` | `serverMode.test.tsx` |
+| `handlePagingChanged`, `paging` (basit mod) | `hooks/useGridState.ts`, `filtering.ts > applyLocal*` | `simpleMode.test.tsx` |
+| `remoteOperations={false}` (client mod) | `hooks/useGridState.ts > resolveDataMode`, `VKDataGrid.tsx` | `clientMode.test.tsx` |
+| Ref: `getFilters`, `resetFilters`, `applyFilters` | `hooks/useGridState.ts` | `refApi.test.tsx` |
+| `<FilterRow>`, `filterOperations`, `showAllText`, `resetOperationText` | `parts/GridFilterRow.tsx` | `serverMode`, `filtersAdvanced.test.tsx` |
+| `<HeaderFilter>`, `headerFilterData` | `parts/HeaderFilterMenu.tsx`, `parts/GridHeader.tsx` | `filtersAdvanced`, `columns.test.tsx` |
+| `<SearchPanel>`, vurgulama | `parts/GridToolbar.tsx`, `parts/CellContent.tsx` | `serverMode`, `simpleMode.test.tsx` |
+| `<Sorting>` (tıklama, Ctrl, Shift, sağ tık menüsü) | `parts/GridHeader.tsx` | `serverMode`, `filtersAdvanced.test.tsx` |
+| `<Selection>`, `multipleSelection`, `selectedRowKeys`, `rowSelectionChange` | `hooks/useGridSelection.ts` | `selection.test.tsx` |
+| Satır tıklama, `singleRowRadioSelection` | `hooks/useRowClickSelection.ts` | `selection`, `appearanceAndMisc.test.tsx` |
+| `<Paging>`, `<Pager>`, `allowedPageSizes`, `totalCount` | `parts/GridPager.tsx`, `hooks/useGridOptions.ts` | `toolbarPager.test.tsx` |
+| `<Column>` alanları: `caption`, `lookup`, `format`, `calculateCellValue`, `cellRender`, `visible`, `alignment` | `columns.ts`, `format.ts`, `parts/CellContent.tsx` | `columns.test.tsx` |
+| `allowFiltering`, `allowSorting`, `allowHiding` (sütun bazında) | `columns.ts`, ilgili parts | `columns`, `toolbarPager.test.tsx` |
+| `fixed`, `fixedPosition` (`<ColumnFixing>`) | `hooks/useColumnLayout.ts > buildColumnPinning` | `columns.test.tsx` |
+| `allowColumnResizing`, `columnWidth` | `hooks/useColumnLayout.ts` | `dragAndResize.test.tsx` |
+| `allowColumnReordering` | `parts/GridHeader.tsx` | `dragAndResize.test.tsx` |
+| `<ColumnChooser>` | `parts/ColumnChooser.tsx` | `toolbarPager`, `appearanceAndMisc.test.tsx` |
+| `<Grouping>`, `groupIndex` | `parts/GridBody.tsx` (GroupRow), `VKDataGrid.tsx` | `groupingSummaryDragging`, `appearanceAndMisc` |
+| `<Summary>` | `parts/GridFooter.tsx` | `groupingSummaryDragging`, `appearanceAndMisc` |
+| `<RowDragging>` | `hooks/useGridRowDragging.ts`, `parts/GridBody.tsx` | `dragAndResize`, `groupingSummaryDragging` |
+| `<Export>`, `onExporting`, seçilileri / tümünü dışa aktar, `isSelected` uyarısı | `hooks/useGridExport.ts`, `export/exportExcel.ts` | `toolbarPager`, `appearanceAndMisc.test.tsx` |
+| `isPrintButtonVisible`, `handlePrint` | `parts/GridToolbar.tsx` | `toolbarPager.test.tsx` |
+| `actionMenuRender` | `table.ts` (actions sütunu), `parts/GridBody.tsx` | — |
+| `showBorders`, `showRowLines`, `showColumnLines`, `rowAlternationEnabled`, `isHeaderBold`, `height`, `noDataText` | `VKDataGrid.tsx`, `context.ts > getCellSx` | `appearanceAndMisc`, `columns.test.tsx` |
+| `scrollingOption` | `hooks/useGridOptions.ts` (sadece standart; `virtual` uyarı verir) | `appearanceAndMisc.test.tsx` |
+| `isCrud`, `onCreate`, `onUpdate`, `onDelete` | Etkisiz (`@deprecated`). Ekle / düzenle / sil kullanan projede yapılır | — |
+
+## Modlar
+
+| Mod | Nasıl açılır | Sayfalama | Filtre / arama / sıralama / özet |
+|---|---|---|---|
+| **Server** | `onFilterChange` verilir | Backend | Backend (`onFilterChange` payload'u) |
+| **Basit** | `onFilterChange` yok, `handlePagingChanged` + `paging` | Backend | Gelen sayfanın satırlarında, yerel |
+| **Client** | `remoteOperations={false}` | Grid | Verinin tamamında, yerel |
+
+Client modda `dataSource` verinin tamamıdır; `totalCount`, `onFilterChange` ve `handlePagingChanged` kullanılmaz
+(verilseler de çağrılmaz). Sayfa sayısı filtrelenmiş veriden hesaplanır, filtre / arama / sıralama / sayfa boyutu
+değişince 1. sayfaya dönülür, veri azalırsa sayfa son geçerli sayfaya çekilir. Özet ve "Excel'e aktar" filtrelenmiş
+tüm satırları kullanır; "Tümünü dışa aktar" `exportDataAllMethod` verilmezse aynı satırları grid içinde aktarır.
+Birkaç on bin satıra kadar uygundur, daha büyük veride server mod kullanılmalı. Testler: `clientMode.test.tsx`.
+
+```tsx
+<VKDataGrid dataSource={allRows} columns={columns} rowKeyExpr="id" remoteOperations={false} />
+```
+
+## Filtre ağacı (`filter`) ve gelişmiş filtre
+
+`onFilterChange` / `getFilters` / `exportDataAllMethod` payload'undaki `filter`, grid'in tüm filtrelerini (filtre
+satırı, header filter, gelişmiş filtre) [react-querybuilder](https://react-querybuilder.js.org) biçiminde tek ağaç
+olarak taşır. Operatörler RQB adlarıyladır (`=`, `!=`, `<`, `>`, `<=`, `>=`, `contains`, `doesNotContain`,
+`beginsWith`, `endsWith`, `between`, `in`). Filtre yokken `{ "combinator": "and", "rules": [] }`.
+
+```json
+{
+  "filter": { "combinator": "and", "rules": [
+    { "combinator": "or", "rules": [
+      { "field": "price", "operator": ">", "value": 100 },
+      { "field": "categoryId", "operator": "=", "value": "c2" } ] },
+    { "field": "name", "operator": "contains", "value": "ürün" } ] },
+  "searchText": "", "sort": null, "pageIndex": 0, "pageSize": 10
+}
+```
+
+> **Eskisinden farklı:** `filter` önceden düz bir liste idi (`[{ dataField, filterOperator, filterValue, filterValues }]`).
+> Bu liste kaldırıldı; `onFilterChange` kullanan backend'ler ağacı okumalı. `applyFilters` girdisi hâlâ düz listedir
+> (filtre satırını doldurmak için), çıktısı ağaçtır.
+
+- **Filtre satırı** tek VE grubu olur. Operatör seçilmemişse lookup / tarih / sayı / boolean için `=`, metin için
+  `contains` (eski düz listede lookup ve tarih için `contains` gidiyordu). Header filter değerleri `in`.
+- **`advancedFilter`** prop'u araç çubuğuna "Gelişmiş filtre" butonu ekler: `VKFilterBuilder` penceresi, alanlar
+  filtrelenebilir sütunlardan (gizliler dahil, lookup seçenekleriyle). Uygulanan filtre solda kural sayısıyla bir
+  chip olarak görünür; tıklayınca düzenlenir, çarpıyla kaldırılır. Uygulama / kaldırma sayfa 0 ile istek atar.
+- İkisi VE ile birleşir: gelişmiş filtre düz VE ise kuralları aynı gruba açılır, VEYA / DEĞİL ise alt grup kalır.
+- Client ve basit modda ağaç yerelde, filtre satırıyla aynı karşılaştırma kurallarıyla (`matchesOperation`)
+  uygulanır. Böylece aynı ağaç backend'de ve tarayıcıda aynı satırları verir (tarih karşılaştırması tarayıcının
+  saat dilimindedir; backend'in `DefaultTimeZone`'u ile aynı olmalı).
+- `resetFilters` gelişmiş filtreyi de temizler. Testler: `advancedFilter.test.tsx`, `filtering.test.ts`.
+
+## Server mod kuralları (`onFilterChange`)
+
+1. Filtre, arama, sıralama ya da sayfa boyutu değişince sayfa 0'a döner ve `onFilterChange` çağrılır.
+2. Sadece sayfa değişince filtreler korunur, yeni `pageIndex` ile çağrılır.
+3. Sütun genişliği değişimi, operatör seçimi ve boş filtre değeri istek **atmaz**.
+4. `between` için iki uçtan biri boşsa istek atılmaz.
+5. Operatör seçilmediyse: metin için `contains`; sayı, tarih, boolean ve lookup için `=`.
+6. Sıralama kaldırılınca `sort: null` gider.
+7. Arama ve metin filtresi 400 ms beklenip tek istek olarak gönderilir.
+8. Tarih filtresi yerel saatle metin olarak gider: `date` → `"2026-11-11"`, `datetime` → `"2026-11-11T14:30:00"` (DevExtreme ile aynı; UTC'ye çevrilmez).
+
+## Seçim (DevExtreme wrapper ile aynı)
+
+- `multipleSelection` varsayılanı `true`: her satırda checkbox, başlıkta "sayfadaki tümünü seç". Tekli seçim için `multipleSelection={false}`.
+- `selectedRowKeys` başlangıç seçimidir, **sadece grid ilk açılırken okunur** (eski wrapper'da da `useState` başlangıç değeriydi). Anahtarlar sonradan (API'den) geliyorsa grid'i veri gelince render et ya da `key` vererek yeniden kur. Örnek: `demo/pages/ClientModePage.tsx`.
+- Eleman `number`/`string` ise `{ [rowKeyExpr]: değer }`, nesne ise olduğu gibi tutulur. Satırın tam verisi, o satırın sayfası görünüp seçim değişince birleştirilir.
+- `singleRowRadioSelection` `selectedRowKeys`'i kullanmaz, işaret boş başlar.
+
+## Eskisinden farklı olanlar
+
+Kullanan projelerde fark edilebilecek bilinçli değişiklikler:
+
+| Konu | Eski (DevExtreme) | Yeni |
+|---|---|---|
+| Basit modda sayfa boyutu değişimi | Sayfa numarası DevExtreme'den okunuyordu | Server mod gibi her zaman 1. sayfaya dönülür |
+| `height` | Sabit yükseklik | Üst sınır: az satırda grid küçülür, aşınca gövde kayar, başlık sabit kalır |
+| `actionMenuRender` sütunu | 60px, veri sütunlarından önce | 88px, satırın en sonunda; sabitlenmez |
+| `resetFilters` | `??` hatası yüzünden hiçbir şey temizlenmiyordu; `resetSort` / `resetSearch` ters bağlıydı | Seçenekler doğru çalışır |
+| `exportDataAllMethod` | `() => void` | `(options) => void \| Promise` (geriye uyumlu). Güncel filtreler parametre gelir; Promise dönerse buton bitene kadar kilitlenir, hata olursa uyarı çıkar |
+| `isCrud` / `onCreate` / `onUpdate` / `onDelete` | Satır içi ekle / düzenle / sil | Etkisiz. Grid sadece seçimi bildirir; işlemler projede (modal + API) yapılır |
+| Excel dışa aktarma | DevExtreme `exportDataGrid` | `exceljs`; görünür sütunlar, lookup metni, biçimli değerler |
+
+Düzeltilen hatalar: header filter ve sıralama menüsü içindeki tıklamaların sütunu yeniden sıralaması.
+
+## Dil metinleri
+
+Metinler eski DataGrid'deki gibi `useExternalUiText("dataGrid.xxx")` ile okunur. İçerik `i18n/externalUiResources.ts`
+(tr / en) dosyasında. Prop verilirse (`noDataText`, `columnChooserOption.title`) prop kazanır.
+
+`i18n/useExternalUiText.ts` bu repoda `@vakif/ui-language-adaptor` olmadığı için aynı imzalı bir yedek uygulamadır.
+Pakette bu dosyanın içeriği şununla değiştirilir:
+
+```ts
+export { useExternalUiText } from '@vakif/ui-language-adaptor';
+export type { LocaleResources } from '@vakif/ui-language-adaptor';
+```
+
+## Header filter
+
+`headerFilter` verilince (varsayılan `false`, DevExtreme ile aynı) `allowHeaderFiltering` açık sütunların başlığında
+huni ikonu hep görünür; filtre aktifken dolu ve renkli olur. Değer listesi `col.headerFilterData`, yoksa global
+`headerFilterData`, o da yoksa sayfadaki veriden üretilir. Seçilen değerler payload'daki react-querybuilder
+ağacına `{ field, operator: 'in', value: [...] }` kuralı olarak girer (filtre satırı kurallarıyla aynı VE grubunda);
+`applyFilters` ile gelen `filterValues` da aynı kurala dönüşür.

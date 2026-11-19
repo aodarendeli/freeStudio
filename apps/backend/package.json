@@ -5,6 +5,9 @@
   "scripts": {
     "dev": "dotnet watch run --project src/Backend.Api",
     "build": "dotnet build Backend.slnx",
-    "test": "dotnet test Backend.slnx"
+    "test": "dotnet test Backend.slnx",
+    "db:update": "dotnet ef database update -p src/Backend.Infrastructure -s src/Backend.Api",
+    "db:migration": "dotnet ef migrations add -p src/Backend.Infrastructure -s src/Backend.Api -o Persistence/Migrations",
+    "db:list": "dotnet ef migrations list -p src/Backend.Infrastructure -s src/Backend.Api"
   }
 }

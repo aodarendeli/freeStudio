@@ -21,11 +21,13 @@ export default async function Home() {
   const t = await getTranslations("home");
   const tCategories = await getTranslations("categories");
 
+  console.log("Session:", session);
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 font-sans">
       <main className="w-full max-w-sm rounded-2xl border border-border bg-card p-8 text-center shadow-sm">
         <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          Freedarendeli
+          Freedarendeli222
         </p>
         <h1 className="mt-1 text-xl font-semibold text-foreground">{t("title")}</h1>
 
