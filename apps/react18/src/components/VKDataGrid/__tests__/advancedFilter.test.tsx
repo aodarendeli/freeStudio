@@ -112,6 +112,7 @@ describe('Gelişmiş filtre (advancedFilter)', () => {
       <VKDataGrid
         columns={columns}
         rowKeyExpr="id"
+        multipleSelection={false}
         dataSource={products}
         remoteOperations={false}
         paging={{ pageIndex: 0, pageSize: 5 }}

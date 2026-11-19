@@ -57,6 +57,9 @@ export const ClientModePage = ({ log }: DemoProps) => {
     ],
     [categories.data]
   );
+  // Başlangıç seçimi: ilk 3 ürün işaretli gelir. `selectedRowKeys` (DevExtreme wrapper'daki gibi) sadece grid
+  // ilk açılırken okunur; anahtarlar sonradan (async) geliyorsa grid veri gelince `key` ile yeniden kurulur.
+  const initialSelectedKeys = useMemo(() => rows.slice(0, 3).map((row) => row.id), [rows]);
   const summary = useMemo(() => ({ options: [{ column: 'price', text: 'Toplam' }], count: [] }), []);
 
   return (
@@ -69,6 +72,7 @@ export const ClientModePage = ({ log }: DemoProps) => {
         )}
       </Stack>
       <VKDataGrid
+        key={products.data ? 'loaded' : 'loading'}
         dataSource={rows}
         columns={columns}
         rowKeyExpr="id"
@@ -77,6 +81,7 @@ export const ClientModePage = ({ log }: DemoProps) => {
         paging={{ pageIndex: 0, pageSize: 10 }}
         allowedPageSizes={[10, 20, 50]}
         multipleSelection
+        selectedRowKeys={["01a1e315-6b0e-7120-bb1d-d6d8dbfde2c2"]}
         rowSelectionChange={(selected) => log('rowSelectionChange', selected.selectedRowKeys)}
         isExportAllButtonVisible
         summary={summary}

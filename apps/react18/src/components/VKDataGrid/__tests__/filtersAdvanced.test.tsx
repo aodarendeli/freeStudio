@@ -123,8 +123,7 @@ describe('Filtre operatörü menüsü', () => {
 });
 
 describe('Header filter', () => {
-// HEADER FILTER: özellik yorum satırında olduğu için atlanıyor; açılınca .skip kaldırılmalı
-  it.skip('menüde arama yapılır; İptal uygulamaz, Tamam uygular; basit modda yerel filtreler', async () => {
+  it('menüde arama yapılır; İptal uygulamaz, Tamam uygular; basit modda yerel filtreler', async () => {
     const user = userEvent.setup();
     render(<SimpleHarness headerFilter />);
     await user.click(screen.getByRole('button', { name: 'Ad değer filtresi' }));
@@ -143,8 +142,7 @@ describe('Header filter', () => {
     expect(getDataRows().map((tr) => tr.querySelector('td')?.textContent)).toEqual(['Ürün 03', 'Ürün 05']);
   });
 
-// HEADER FILTER: özellik yorum satırında olduğu için atlanıyor; açılınca .skip kaldırılmalı
-  it.skip('headerFilterData: sütun bazında ve global liste kullanılır', async () => {
+  it('headerFilterData: sütun bazında ve global liste kullanılır', async () => {
     const user = userEvent.setup();
     render(
       <ServerHarness
@@ -164,8 +162,7 @@ describe('Header filter', () => {
     expect(await screen.findByRole('checkbox', { name: 'Global değer' })).toBeInTheDocument();
   });
 
-// HEADER FILTER: özellik yorum satırında olduğu için atlanıyor; açılınca .skip kaldırılmalı
-  it.skip('arama + filtre + header filter birlikte tek payload içinde gider', async () => {
+  it('arama + filtre + header filter birlikte tek payload içinde gider', async () => {
     const user = userEvent.setup();
     const onRequest = vi.fn();
     render(<ServerHarness headerFilter onRequest={onRequest} />);
@@ -191,8 +188,7 @@ describe('Header filter', () => {
 });
 
 describe('Hata düzeltmesi: başlıktaki menüler sıralamayı tetiklememeli', () => {
-// HEADER FILTER: özellik yorum satırında olduğu için atlanıyor; açılınca .skip kaldırılmalı
-  it.skip('header filter açıp Tamam / İptal / checkbox tıklamak sıralama isteği atmaz', async () => {
+  it('header filter açıp Tamam / İptal / checkbox tıklamak sıralama isteği atmaz', async () => {
     const user = userEvent.setup();
     const onRequest = vi.fn();
     render(<ServerHarness headerFilter onRequest={onRequest} />);
@@ -276,10 +272,15 @@ it('fixture: 12 ürün, 2 kategori', () => {
   expect(categories).toHaveLength(2);
 });
 
-describe('Header filter kapalıyken', () => {
-  it('headerFilter verilse de başlıkta değer filtresi ikonu çıkmaz', () => {
-    render(<ServerHarness headerFilter />);
+describe('Header filter görünürlüğü ve payload', () => {
+  it('headerFilter verilmezse (varsayılan false) başlıkta değer filtresi ikonu çıkmaz', () => {
+    render(<ServerHarness />);
     expect(screen.queryByRole('button', { name: /değer filtresi/ })).not.toBeInTheDocument();
+  });
+
+  it('headerFilter verilince ikon hover beklemeden görünür (DevExtreme gibi)', () => {
+    render(<ServerHarness headerFilter />);
+    expect(screen.getAllByRole('button', { name: /değer filtresi/ }).length).toBeGreaterThan(0);
   });
 
   it('applyFilters ile gelen filterValues payload ağacında in kuralı olarak gider', async () => {

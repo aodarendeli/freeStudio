@@ -8,7 +8,13 @@ const lastSelection = (fn: ReturnType<typeof vi.fn>) => fn.mock.calls.at(-1)?.[0
 const rowCheckbox = (text: string) => within(getRowByText(text)).getByRole('checkbox', { name: 'Satırı seç' });
 
 describe('Seçim', () => {
-  describe('varsayılan (multipleSelection = false)', () => {
+  it('multipleSelection verilmezse varsayılan çoklu seçimdir (DevExtreme wrapper ile aynı)', () => {
+    render(<VKDataGrid dataSource={page(0, 5)} totalCount={5} columns={columns} rowKeyExpr="id" />);
+    expect(screen.getAllByRole('checkbox', { name: 'Satırı seç' })).toHaveLength(5);
+    expect(screen.getByRole('checkbox', { name: 'Sayfadaki tüm satırları seç' })).toBeInTheDocument();
+  });
+
+  describe('tekli seçim (multipleSelection={false})', () => {
     it('checkbox sütunu yoktur; satıra tıklayınca tek satır seçilir, başkasına tıklayınca seçim değişir', async () => {
       const user = userEvent.setup();
       const onSelect = vi.fn();

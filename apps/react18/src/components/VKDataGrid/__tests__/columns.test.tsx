@@ -120,8 +120,7 @@ describe('Sütun bazında filtre / sıralama ayarları', () => {
     expect(onRequest).not.toHaveBeenCalled();
   });
 
-// HEADER FILTER: özellik yorum satırında olduğu için atlanıyor; açılınca .skip kaldırılmalı
-  it.skip('header filter: sadece izin verilen sütunlarda ikon çıkar, seçilen değerler filterValues ile gider', async () => {
+  it('header filter: sadece izin verilen sütunlarda ikon çıkar, seçilen değerler filterValues ile gider', async () => {
     const user = userEvent.setup();
     const onRequest = vi.fn();
     render(

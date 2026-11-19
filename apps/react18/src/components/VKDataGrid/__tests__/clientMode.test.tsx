@@ -12,6 +12,7 @@ const ClientGrid = forwardRef<VKDataGridRef, Partial<VKDataGridProps>>((props, r
     ref={ref}
     columns={columns}
     rowKeyExpr="id"
+    multipleSelection={false}
     dataSource={products}
     remoteOperations={false}
     paging={{ pageIndex: 0, pageSize: 5 }}

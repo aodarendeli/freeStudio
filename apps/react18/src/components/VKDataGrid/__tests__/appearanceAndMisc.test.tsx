@@ -94,13 +94,13 @@ describe('Seçim: ek durumlar', () => {
   it('tekli seçimde seçili kayıt veriden kalkınca (silinince) seçim de kalkar', async () => {
     const onSelect = vi.fn();
     const { rerender } = render(
-      <VKDataGrid dataSource={page(0, 5)} totalCount={5} columns={columns} rowKeyExpr="id" rowSelectionChange={onSelect} />
+      <VKDataGrid dataSource={page(0, 5)} totalCount={5} columns={columns} rowKeyExpr="id" multipleSelection={false} rowSelectionChange={onSelect} />
     );
     await userEvent.click(screen.getByText('Ürün 02'));
     expect(getRowByText('Ürün 02')).toHaveAttribute('aria-selected', 'true');
     const withoutTwo = page(0, 5).filter((p) => p.id !== 2);
-    rerender(<VKDataGrid dataSource={withoutTwo} totalCount={4} columns={columns} rowKeyExpr="id" rowSelectionChange={onSelect} />);
-    rerender(<VKDataGrid dataSource={page(0, 5)} totalCount={5} columns={columns} rowKeyExpr="id" rowSelectionChange={onSelect} />);
+    rerender(<VKDataGrid dataSource={withoutTwo} totalCount={4} columns={columns} rowKeyExpr="id" multipleSelection={false} rowSelectionChange={onSelect} />);
+    rerender(<VKDataGrid dataSource={page(0, 5)} totalCount={5} columns={columns} rowKeyExpr="id" multipleSelection={false} rowSelectionChange={onSelect} />);
     expect(getRowByText('Ürün 02')).toHaveAttribute('aria-selected', 'false');
   });
 

@@ -39,7 +39,7 @@ Testler: `pnpm --filter react18 test`
 | `remoteOperations={false}` (client mod) | `hooks/useGridState.ts > resolveDataMode`, `VKDataGrid.tsx` | `clientMode.test.tsx` |
 | Ref: `getFilters`, `resetFilters`, `applyFilters` | `hooks/useGridState.ts` | `refApi.test.tsx` |
 | `<FilterRow>`, `filterOperations`, `showAllText`, `resetOperationText` | `parts/GridFilterRow.tsx` | `serverMode`, `filtersAdvanced.test.tsx` |
-| `<HeaderFilter>`, `headerFilterData` | `parts/HeaderFilterMenu.tsx` (**şu an kapalı**, bkz. aşağı) | `filtersAdvanced`, `columns` (atlanıyor) |
+| `<HeaderFilter>`, `headerFilterData` | `parts/HeaderFilterMenu.tsx`, `parts/GridHeader.tsx` | `filtersAdvanced`, `columns.test.tsx` |
 | `<SearchPanel>`, vurgulama | `parts/GridToolbar.tsx`, `parts/CellContent.tsx` | `serverMode`, `simpleMode.test.tsx` |
 | `<Sorting>` (tıklama, Ctrl, Shift, sağ tık menüsü) | `parts/GridHeader.tsx` | `serverMode`, `filtersAdvanced.test.tsx` |
 | `<Selection>`, `multipleSelection`, `selectedRowKeys`, `rowSelectionChange` | `hooks/useGridSelection.ts` | `selection.test.tsx` |
@@ -123,13 +123,19 @@ olarak taşır. Operatörler RQB adlarıyladır (`=`, `!=`, `<`, `>`, `<=`, `>=`
 7. Arama ve metin filtresi 400 ms beklenip tek istek olarak gönderilir.
 8. Tarih filtresi yerel saatle metin olarak gider: `date` → `"2026-11-11"`, `datetime` → `"2026-11-11T14:30:00"` (DevExtreme ile aynı; UTC'ye çevrilmez).
 
+## Seçim (DevExtreme wrapper ile aynı)
+
+- `multipleSelection` varsayılanı `true`: her satırda checkbox, başlıkta "sayfadaki tümünü seç". Tekli seçim için `multipleSelection={false}`.
+- `selectedRowKeys` başlangıç seçimidir, **sadece grid ilk açılırken okunur** (eski wrapper'da da `useState` başlangıç değeriydi). Anahtarlar sonradan (API'den) geliyorsa grid'i veri gelince render et ya da `key` vererek yeniden kur. Örnek: `demo/pages/ClientModePage.tsx`.
+- Eleman `number`/`string` ise `{ [rowKeyExpr]: değer }`, nesne ise olduğu gibi tutulur. Satırın tam verisi, o satırın sayfası görünüp seçim değişince birleştirilir.
+- `singleRowRadioSelection` `selectedRowKeys`'i kullanmaz, işaret boş başlar.
+
 ## Eskisinden farklı olanlar
 
 Kullanan projelerde fark edilebilecek bilinçli değişiklikler:
 
 | Konu | Eski (DevExtreme) | Yeni |
 |---|---|---|
-| `multipleSelection` varsayılanı | `true` | `false`. Checkbox'lı çoklu seçim için `multipleSelection` verilmeli |
 | Basit modda sayfa boyutu değişimi | Sayfa numarası DevExtreme'den okunuyordu | Server mod gibi her zaman 1. sayfaya dönülür |
 | `height` | Sabit yükseklik | Üst sınır: az satırda grid küçülür, aşınca gövde kayar, başlık sabit kalır |
 | `actionMenuRender` sütunu | 60px, veri sütunlarından önce | 88px, satırın en sonunda; sabitlenmez |
@@ -153,12 +159,10 @@ export { useExternalUiText } from '@vakif/ui-language-adaptor';
 export type { LocaleResources } from '@vakif/ui-language-adaptor';
 ```
 
-## Şu an kapalı olan: header filter
+## Header filter
 
-`headerFilter` prop'u tipte duruyor (projeler derlenmeye devam eder) ama başlıktaki değer filtresi ikonu
-**yorum satırında**. Açmak için:
-
-1. `parts/GridHeader.tsx` içinde `HEADER FILTER` notlu satırların yorumunu kaldırın.
-2. `__tests__` içindeki `HEADER FILTER` notlu `it.skip` testlerini `it` yapın.
-
-`applyFilters` ile gelen `filterValues` bu sürede de çalışmaya devam eder.
+`headerFilter` verilince (varsayılan `false`, DevExtreme ile aynı) `allowHeaderFiltering` açık sütunların başlığında
+huni ikonu hep görünür; filtre aktifken dolu ve renkli olur. Değer listesi `col.headerFilterData`, yoksa global
+`headerFilterData`, o da yoksa sayfadaki veriden üretilir. Seçilen değerler payload'daki react-querybuilder
+ağacına `{ field, operator: 'in', value: [...] }` kuralı olarak girer (filtre satırı kurallarıyla aynı VE grubunda);
+`applyFilters` ile gelen `filterValues` da aynı kurala dönüşür.

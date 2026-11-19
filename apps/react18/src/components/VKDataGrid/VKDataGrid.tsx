@@ -101,7 +101,7 @@ const VKDataGrid = forwardRef<VKDataGridRef, VKDataGridProps>((props, ref) => {
     rowAlternationEnabled = true,
     searchPanel,
     // Eskisinden farklı: varsayılan true idi; checkbox'lı çoklu seçim artık açıkça istenir
-    multipleSelection = false,
+    multipleSelection = true,
     allowedPageSizes = [5, 10, 20],
     summary,
     selection,

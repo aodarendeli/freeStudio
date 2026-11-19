@@ -44,6 +44,7 @@ export const ServerHarness = forwardRef<
     <VKDataGrid
       ref={ref}
       columns={columns}
+      multipleSelection={false}
       rowKeyExpr="id"
       dataSource={page(options.pageIndex, options.pageSize)}
       totalCount={products.length}
@@ -65,6 +66,7 @@ export const SimpleHarness = (
   return (
     <VKDataGrid
       columns={columns}
+      multipleSelection={false}
       rowKeyExpr="id"
       dataSource={page(paging.pageIndex, paging.pageSize)}
       totalCount={products.length}
